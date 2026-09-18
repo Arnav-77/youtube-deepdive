@@ -2,7 +2,10 @@
 
 import os
 
-from fastapi import Depends, FastAPI, Response
+from fastapi import Depends, FastAPI, Response ,HTTPException
+from pydantic import BaseModel
+from app.chunking import store_chunks
+from app.youtube import ingest_video
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -64,3 +67,79 @@ def ready(response: Response, session: Session = Depends(get_session)):
         # stdout where Render captures it; the caller gets a class name.
         print(f"readiness check failed: {exc!r}")
         return {"status": "not_ready", "database": type(exc).__name__}
+class IngestRequest(BaseModel):
+    """What the client sends to POST /videos.
+
+    A Pydantic model rather than a raw dict: FastAPI validates the shape
+    before the handler runs, so a request missing `url` gets a 422 with a
+    readable message instead of reaching our code and raising KeyError.
+    It also means the field appears in the auto-generated /docs page.
+    """
+
+    url: str
+
+
+class IngestResponse(BaseModel):
+    """What we send back.
+
+    Declaring the response shape explicitly stops us accidentally leaking
+    fields later -- if someone adds a column to Video, it does not silently
+    appear in the public API.
+    """
+
+    video_id: str
+    source: str
+    duration_seconds: int | None
+    snippet_count: int
+    chunk_count: int
+    chunking_run: str
+
+
+@app.post("/videos", response_model=IngestResponse)
+def ingest(payload: IngestRequest, session: Session = Depends(get_session)):
+    """Fetch a video's transcript, store it, and chunk it.
+
+    KNOWN LIMITATION -- THIS BLOCKS.
+    Fetching a transcript takes seconds, and this handler holds a worker for
+    that whole time. There is exactly one worker (Render sets
+    WEB_CONCURRENCY=1 for 0.1 CPU), so a second concurrent ingestion queues
+    behind the first, and Render's request timeout is around 100 seconds.
+
+    The correct fix is a background job: return 202 Accepted immediately and
+    have a worker do the fetch. That needs a queue, a second process, and
+    state to track, and it is deferred deliberately rather than overlooked.
+    Revisit when the frontend exists, or if a long video starts timing out.
+
+    Both operations below are idempotent -- calling this twice on the same
+    URL re-uses the stored transcript and the stored chunks rather than
+    doing the work again. That matters because the 20 benchmark videos get
+    hit repeatedly during evaluation runs and the transcript API is rate
+    limited.
+    """
+    try:
+        video = ingest_video(session, payload.url)
+    except ValueError as exc:
+        # extract_video_id raises ValueError on an unparseable URL. That is
+        # the client's fault, so 400 -- not 500, which would claim our bug.
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        # Anything else is a fetch failure: video deleted, private, no
+        # captions, or the API rate limiting us. 502 Bad Gateway says an
+        # upstream service failed us, which is accurate and distinguishes
+        # it from our own code breaking.
+        print(f"ingest failed for {payload.url!r}: {exc!r}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not fetch transcript: {type(exc).__name__}",
+        )
+
+    chunks = store_chunks(session, video)
+
+    return IngestResponse(
+        video_id=video.video_id,
+        source=video.source,
+        duration_seconds=video.duration_seconds,
+        snippet_count=len(video.raw_transcript),
+        chunk_count=len(chunks),
+        chunking_run=chunks[0].chunking_run if chunks else "",
+    )
