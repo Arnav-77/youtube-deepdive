@@ -150,6 +150,18 @@ class QueryLog(Base):
     # fallback. Without this, a latency spike caused by failover is
     # indistinguishable from one caused by your code.
     model: Mapped[str | None] = mapped_column(String(64), index=True)
+    
+    # What we asked LiteLLM for, before any fallback could fire. NULL when no
+    # model was called at all (retrieval returned nothing): a log column
+    # records what happened, not what would have happened. Fallback fired =
+    # model IS NOT NULL AND model <> model_requested.
+    model_requested: Mapped[str | None] = mapped_column(String(64))
+
+    # Which deployment wrote this row: the git SHA Render built from, or
+    # "local" on a laptop. Laptop and production write to the same Neon
+    # table, so without this, local test traffic is indistinguishable from
+    # real traffic. NULL on every row written before this column existed.
+    commit_sha: Mapped[str | None] = mapped_column(String(40))
 
     prompt_tokens: Mapped[int | None] = mapped_column(Integer)
     completion_tokens: Mapped[int | None] = mapped_column(Integer)

@@ -72,6 +72,8 @@ class Generated:
 
     answer: str | None = None
     model: str | None = None
+    # What we asked for. None when no model was called (empty retrieval).
+    model_requested: str | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     estimated_cost_usd: float | None = None
@@ -145,16 +147,17 @@ def generate(question: str, results: list[Retrieved]) -> Generated:
         response = litellm.completion(
             model=PRIMARY_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            # Temperature 0 for reproducibility. The evaluation report
-            # compares prompt versions against each other; with sampling on,
-            # a re-run differs from itself and any measured "improvement"
-            # could be noise.
+            # Temperature 0 to minimise sampling variance. It does NOT make
+            # output reproducible: identical requests measured on 20 Sep 2026
+            # produced different answers, and Gemini 3 warns that temperature
+            # is being deprecated. The evaluation harness therefore runs each
+            # question several times and reports the spread.
             temperature=0.0,
             fallbacks=FALLBACK_MODELS or None,
         )
     except Exception as exc:
         return Generated(
-            model=PRIMARY_MODEL,
+            model_requested=PRIMARY_MODEL,
             latency_ms=int((time.perf_counter() - started) * 1000),
             # Class name plus message here, unlike the public endpoints:
             # this string goes into the database, not to a user, and the
@@ -183,6 +186,7 @@ def generate(question: str, results: list[Retrieved]) -> Generated:
     return Generated(
         answer=answer or None,
         model=used_model,
+        model_requested=PRIMARY_MODEL,
         prompt_tokens=getattr(usage, "prompt_tokens", None),
         completion_tokens=getattr(usage, "completion_tokens", None),
         estimated_cost_usd=cost,

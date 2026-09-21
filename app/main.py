@@ -3,7 +3,7 @@
 import os
 
 from fastapi import Depends, FastAPI, Response ,HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel , Field
 from app.chunking import store_chunks
 from app.youtube import ingest_video
 from sqlalchemy import text
@@ -157,10 +157,14 @@ class AskRequest(BaseModel):
     bare id. Forgiving on input because the caller is a browser and people
     paste whatever they copied.
     """
-
-    video: str
-    question: str
-    top_k: int = DEFAULT_TOP_K
+    # Bounded because this endpoint is public: an unbounded top_k lets one
+    # request put every chunk of a long video into a single prompt and spend
+    # the free-tier quota, and a negative one crashes the SQL LIMIT. Pydantic
+    # rejects out-of-range values with a 422 before the handler runs, so
+    # those requests are deliberately not logged: they were never servable.
+    video: str = Field(min_length=1, max_length=200)
+    question: str = Field(min_length=1, max_length=500)
+    top_k: int = Field(DEFAULT_TOP_K, ge=1, le=10)
 
 
 class Citation(BaseModel):
@@ -201,8 +205,14 @@ def _write_log(session: Session, row: QueryLog) -> None:
     as well is worse.
     """
     try:
+        # A failed query earlier in this request leaves the session refusing
+        # all work until rolled back, which would lose exactly the rows about
+        # database failures. Safe only because /ask writes nothing else, so
+        # there is nothing pending for the rollback to discard.
+        session.rollback()
         session.add(row)
         session.commit()
+        
     except Exception as exc:
         session.rollback()
         print(
@@ -229,6 +239,7 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)):
         question=payload.question,
         chunking_run=run,
         prompt_version=PROMPT_VERSION,
+        commit_sha=GIT_COMMIT,
     )
 
     try:
@@ -247,6 +258,7 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)):
 
         log.answer = result.answer
         log.model = result.model
+        log.model_requested = result.model_requested
         log.prompt_tokens = result.prompt_tokens
         log.completion_tokens = result.completion_tokens
         log.estimated_cost_usd = result.estimated_cost_usd
@@ -313,6 +325,18 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)):
             model=result.model,
             latency_ms=int((time.perf_counter() - started) * 1000),
         )
+    except HTTPException:
+        # Our own deliberate 400/502. log.error was already set on that path.
+        raise
+    except Exception as exc:
+        # Anything we did not anticipate: a database error inside search(),
+        # or a plain bug. Without this the row is written with error=NULL and
+        # answer=NULL, which reads as neither failed nor answered. Class name
+        # only: SQLAlchemy messages can embed the connection URL, and the
+        # full traceback already goes to stdout for Render's logs.
+        if log.error is None:
+            log.error = f"unhandled: {type(exc).__name__}"
+        raise
 
     finally:
         # Total request time, not just generation. models.py notes that per
