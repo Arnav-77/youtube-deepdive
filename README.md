@@ -311,3 +311,6 @@ keep reported numbers honest, and moving one after seeing results defeats it.
 **Prompts are versioned files, not string constants.** A change belongs in a
 new file under `app/prompts/`, so that a change in output quality can be
 attributed to a specific edit.
+
+A fuller record of what broke and how each problem was diagnosed is in
+[docs/problems.md](docs/problems.md).
