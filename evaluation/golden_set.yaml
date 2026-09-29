@@ -46,6 +46,8 @@ videos:
     set: dev
     duration_s: 1030
     category: educational
+    bucket: medium
+    captions: auto
     questions:
       - q: What did the speaker learn from the person who climbed Everest?
         spans: [[51, 128]]
@@ -64,3 +66,138 @@ videos:
           managing energy so you keep going. Labelled by watching, 28 Sep 2026.
           This is a RETRIEVAL failure, not a refusal case, and the clearest
           argument for dense retrieval in the set.
+
+  - video_id: p4qPp_3_f2Y
+    set: dev
+    bucket: long
+    duration_s: 6355
+    category: rambling
+    captions: auto
+    note: Robert Greene x Raj Shamani
+    questions: []
+
+  - video_id: 4Vz6L8B73i4
+    set: dev
+    bucket: very_long
+    duration_s: 10498
+    category: rambling
+    captions: auto
+    note: Sahar Yousef x Raj Shamani
+    questions: []
+
+  - video_id: Fa_V9fP2tpU
+    set: dev
+    bucket: medium
+    duration_s: 1343
+    category: educational
+    captions: auto
+    note: ML concepts explained
+    questions: []
+
+  - video_id: quyJBb1yWJ8
+    set: dev
+    bucket: short
+    duration_s: 451
+    category: educational
+    captions: auto
+    note: easy ML model explained
+    questions: []
+
+  - video_id: i3AkTO9HLXo
+    set: reported
+    bucket: short
+    duration_s: 565
+    category: jargon
+    captions: auto
+    note: markov chains, Normalized Nerd
+    questions: []
+
+  - video_id: o-jdJxXL_W4
+    set: reported
+    bucket: short
+    duration_s: 433
+    category: jargon
+    captions: auto
+    note: markov chains, third of the trio
+    questions: []
+
+  - video_id: KZeIEiBrT_w
+    set: reported
+    bucket: medium
+    duration_s: 1944
+    category: jargon
+    captions: auto
+    note: markov chains, longer treatment
+    questions: []
+
+  - video_id: fNk_zzaMoSs
+    set: reported
+    bucket: short
+    duration_s: 591
+    category: educational
+    captions: human
+    note: vectors, 3Blue1Brown
+    questions: []
+
+  - video_id: cmNIMjPYdgM
+    set: reported
+    bucket: long
+    duration_s: 4685
+    category: jargon
+    captions: auto
+    note: Stanford CS229
+    questions: []
+
+  - video_id: JuoVZkPBiKk
+    set: reported
+    bucket: long
+    duration_s: 4757
+    category: jargon
+    captions: auto
+    note: LLM lecture 1
+    questions: []
+
+  - video_id: lVynu4bo1rY
+    set: reported
+    bucket: long
+    duration_s: 5350
+    category: jargon
+    captions: auto
+    note: LLM lecture 3
+    questions: []
+
+  - video_id: DzpHeXVSC5I
+    set: reported
+    bucket: long
+    duration_s: 4813
+    category: jargon
+    captions: auto
+    note: CS224N NLP lecture 1
+    questions: []
+
+  - video_id: Ba6Fn1-Jsfw
+    set: reported
+    bucket: long
+    duration_s: 4624
+    category: jargon
+    captions: auto
+    note: CS224N NLP lecture 6
+    questions: []
+
+  - video_id: Ub3GoFaUcds
+    set: reported
+    bucket: long
+    duration_s: 6116
+    category: jargon
+    captions: auto
+    note: CME295 transformers and LLMs
+    questions: []
+
+  - video_id: PbXjK-F-5so
+    set: reported
+    bucket: very_long
+    duration_s: 12406
+    category: rambling
+    captions: auto
+    note: bulletproof mind
+    questions: []
