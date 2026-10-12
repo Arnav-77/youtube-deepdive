@@ -201,3 +201,66 @@ videos:
     captions: auto
     note: bulletproof mind
     questions: []
+
+  - video_id: ukzFI9rgwfU
+    set: reported
+    bucket: short
+    duration_s: 468
+    category: educational
+    captions: auto
+    note: what is machine learning
+    questions: []
+
+  - video_id: E0Hmnixke2g
+    set: reported
+    bucket: medium
+    duration_s: 990
+    category: educational
+    captions: auto
+    note: all ML algorithms explained
+    questions: []
+
+  - video_id: 9dFhZFUkzuQ
+    set: reported
+    bucket: medium
+    duration_s: 1676
+    category: educational
+    captions: auto
+    note: ML vs DL vs AI
+    questions: []
+
+  - video_id: NUXdtN1W1FE
+    set: reported
+    bucket: medium
+    duration_s: 2145
+    category: educational
+    captions: auto
+    note: linear regression analysis
+    questions: []
+
+  - video_id: prWyZhcktn4
+    set: reported
+    bucket: medium
+    duration_s: 1487
+    category: educational
+    captions: auto
+    note: confusion matrix, tensorflow
+    questions: []
+
+  - video_id: RmajweUFKvM
+    set: reported
+    bucket: medium
+    duration_s: 1959
+    category: educational
+    captions: auto
+    note: decision trees
+    questions: []
+
+  - video_id: 4HKqjENq9OU
+    set: reported
+    bucket: medium
+    duration_s: 1642
+    category: educational
+    captions: auto
+    note: kNN algorithm
+    questions: []

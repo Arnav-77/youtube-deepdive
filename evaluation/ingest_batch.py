@@ -60,6 +60,6 @@ for video_id, which_set, bucket, note in VIDEOS:
     print(f"{video_id:<14}{which_set:<10}{bucket:<11}"
           f"{data['duration_seconds'] / 60:>6.0f}{data['chunk_count']:>8}  {sample}")
 
-    time.sleep(1)  # be polite to YouTube's API between fetches
+    time.sleep(10)  # be polite to YouTube's API between fetches
 
 session.close()
