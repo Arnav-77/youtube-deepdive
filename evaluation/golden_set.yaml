@@ -110,7 +110,34 @@ videos:
     category: jargon
     captions: auto
     note: markov chains, Normalized Nerd
-    questions: []
+    questions:
+      - q: what is the markov property
+        spans: [[110, 150]]
+        quote: now let's discuss some properties
+        note: >
+          Plain definition question using the video's own vocabulary. Expected
+           to be the easy case for lexical retrieval.
+      - q: what does the restaurant example show
+        spans: [[150, 200]]
+        quote: pizza on the first day
+        note: >
+          Tests whether retrieval finds the EXAMPLE rather than the DEFINITION
+          , when both discuss the same concept within a minute of each other.
+      - q: how do you calculate the probability of the next day
+        spans: [[340, 565]]
+        note: >
+          Span is wide (225s) because the worked calculation genuinely runs fr
+          om 5:40 to the end of the video. Recorded as a known-wide label: it 
+          will flatter any retriever, so read its per-question result with tha
+          t in mind.
+      - q: does what happened yesterday matter for tomorrow
+        spans: [[110, 150]]
+        note: >
+          THE VOCABULARY-MISMATCH CASE. Asks about the Markov property using n
+          one of its words: no markov, no property, no state, no transition. P
+          rediction recorded 12 Oct 2026, BEFORE running: lexical retrieval mi
+          sses this, dense retrieval finds it. Checking that prediction is the
+           point.
 
   - video_id: o-jdJxXL_W4
     set: reported
