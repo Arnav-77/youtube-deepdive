@@ -1,63 +1,168 @@
-"""Add hand-written labels to one video in the golden set.
+"""Add hand-written relevance labels for one video to evaluation/golden_set.yaml.
 
-Edit VIDEO_ID and QUESTIONS, then run. The script replaces that video's
-`questions: []` with the labels below. It refuses to touch a video that
-already has questions, so a re-run cannot silently overwrite earlier
-labelling work.
+Edit VIDEO_ID and QUESTIONS, then run:
+
+    python evaluation/add_labels.py
+
+New questions are appended to the video's existing list. The script refuses if
+any of them is already there (same text, ignoring case), so re-running it
+cannot duplicate labels.
+
+The file is edited as text rather than re-written through the YAML library,
+because re-serialising would reformat every hand-written entry and drop the
+comments. The edited text is parsed and checked in memory BEFORE anything is
+written: if it does not parse, or if anything other than the new questions
+would change, the file is left exactly as it was.
 """
 
+import json
+import sys
+import textwrap
 from pathlib import Path
 
-VIDEO_ID = "i3AkTO9HLXo"
+import yaml
 
-# (question, [[start, end], ...], quote, note)
+VIDEO_ID = "LXaFHI_2Hus"
+
+# (question, gold spans in seconds, short quote for the labeller, note)
 QUESTIONS = [
-    ("what is the markov property",
-     [[110, 150]],
-     "now let's discuss some properties",
-     "Plain definition question using the video's own vocabulary. Expected to be the easy case for lexical retrieval."),
-
-    ("what does the restaurant example show",
-     [[150, 200]],
-     "pizza on the first day",
-     "Tests whether retrieval finds the EXAMPLE rather than the DEFINITION, when both discuss the same concept within a minute of each other."),
-
-    ("how do you calculate the probability of the next day",
-     [[340, 565]],
-     "",
-     "Span is wide (225s) because the worked calculation genuinely runs from 5:40 to the end of the video. Recorded as a known-wide label: it will flatter any retriever, so read its per-question result with that in mind."),
-
-    ("does what happened yesterday matter for tomorrow",
-     [[110, 150]],
-     "",
-     "THE VOCABULARY-MISMATCH CASE. Asks about the Markov property using none of its words: no markov, no property, no state, no transition. Prediction recorded 12 Oct 2026, BEFORE running: lexical retrieval misses this, dense retrieval finds it. Checking that prediction is the point."),
+    (
+        "What should I do the moment I notice I've got distracted?",
+        [[182, 268]],
+        "you are interrupting the interruption",
+        "OWN-WORDS CASE. The speaker names this habit 'correct after the click'; "
+        "the question avoids correct, click, interrupt and habit. Caveat from the "
+        "Markov video: if the speaker says 'distraction' anywhere, stemming maps it "
+        "and 'distracted' to the same root, and lexical search will match.",
+    ),
+    (
+        "What is the second habit talked about in this video?",
+        [[282, 402]],
+        "subscribe below",
+        "ORDINAL QUESTION. The speaker says 'second habit' aloud, so lexical search "
+        "can find it through 'second' alone; 'habit' is in 19 of 20 fixed_1000_200 "
+        "chunks and discriminates nothing. Deliberately wide (2 min): the habit plus "
+        "its explanation. The span opens on a subscribe call-to-action.",
+    ),
+    (
+        "What is the first energy habit talked about?",
+        [[516, 604]],
+        "doing half a pushup",
+        "First label in the second half of the video. 'Energy habit' is the "
+        "speaker's phrase. Stated at 8:36, explained after. Watch whether 'first' "
+        "pulls in the earlier habit sections instead.",
+    ),
 ]
 
-path = Path(__file__).resolve().parent / "golden_set.yaml"
-text = path.read_text()
+PATH = Path(__file__).resolve().parent / "golden_set.yaml"
 
-marker = f"  - video_id: {VIDEO_ID}\n"
-if marker not in text:
-    raise SystemExit(f"{VIDEO_ID} is not in the golden set")
 
-start = text.index(marker)
-end = text.find("\n  - video_id:", start + 1)
-entry = text[start:end] if end != -1 else text[start:]
+def find_video(data, video_id):
+    for video in data.get("videos") or []:
+        if video.get("video_id") == video_id:
+            return video
+    return None
 
-if "questions: []" not in entry:
-    raise SystemExit(f"{VIDEO_ID} already has questions; refusing to overwrite")
 
-block = "    questions:\n"
-for question, spans, quote, note in QUESTIONS:
+def question_yaml(question, spans, quote, note):
+    """Render one question as YAML lines at the indentation the file uses."""
     spans_yaml = "[" + ", ".join(f"[{a}, {b}]" for a, b in spans) + "]"
-    block += f"      - q: {question}\n"
-    block += f"        spans: {spans_yaml}\n"
+    out = f"      - q: {json.dumps(question)}\n"
+    out += f"        spans: {spans_yaml}\n"
     if quote:
-        block += f"        quote: {quote}\n"
-    block += f"        note: >\n"
-    for line in [note[i:i + 68] for i in range(0, len(note), 68)]:
-        block += f"          {line}\n"
+        out += f"        quote: {json.dumps(quote)}\n"
+    out += "        note: >\n"
+    for line in textwrap.wrap(note, 68):
+        out += f"          {line}\n"
+    return out
 
-text = text[:start] + entry.replace("    questions: []\n", block) + (text[end:] if end != -1 else "")
-path.write_text(text)
-print(f"wrote {len(QUESTIONS)} questions for {VIDEO_ID}")
+
+text = PATH.read_text()
+if not text.endswith("\n"):
+    text += "\n"
+
+old_data = yaml.safe_load(text)
+old_video = find_video(old_data, VIDEO_ID)
+if old_video is None:
+    sys.exit(f"{VIDEO_ID} is not in the golden set")
+
+old_questions = old_video.get("questions") or []
+existing = {str(q.get("q", "")).strip().lower() for q in old_questions}
+
+# Validate every new question before touching the text.
+duration = old_video.get("duration_s")
+for question, spans, quote, note in QUESTIONS:
+    if question.strip().lower() in existing:
+        sys.exit(f"refusing: already labelled for {VIDEO_ID}: {question!r}")
+    for start, end in spans:
+        if not (0 <= start < end) or (duration and end > duration):
+            sys.exit(f"bad span [{start}, {end}] for {question!r} (video is {duration}s)")
+
+block = "".join(question_yaml(*q) for q in QUESTIONS)
+
+# Locate this video's entry, and the questions key inside it, as lines of text.
+lines = text.splitlines(keepends=True)
+start = next(
+    (i for i, line in enumerate(lines) if line.rstrip() == f"  - video_id: {VIDEO_ID}"),
+    None,
+)
+if start is None:
+    sys.exit(f"could not find the entry line for {VIDEO_ID}; is it indented differently?")
+
+end = next(
+    (i for i in range(start + 1, len(lines)) if lines[i].startswith("  - video_id:")),
+    len(lines),
+)
+
+qline = next(
+    (i for i in range(start + 1, end)
+     if lines[i].rstrip() in ("    questions:", "    questions: []")),
+    None,
+)
+if qline is None:
+    sys.exit(f"{VIDEO_ID} has no 'questions:' key at the expected indentation")
+
+if lines[qline].rstrip() == "    questions: []":
+    lines[qline] = "    questions:\n" + block
+else:
+    # Insert after the last line of the existing list: every line inside
+    # the questions list is indented by at least 6 spaces.
+    insert_at = qline + 1
+    while insert_at < end and lines[insert_at].startswith("      "):
+        insert_at += 1
+    lines.insert(insert_at, block)
+
+new_text = "".join(lines)
+
+# Prove, in memory, that only the intended change happened.
+try:
+    new_data = yaml.safe_load(new_text)
+except yaml.YAMLError as exc:
+    sys.exit(f"edited YAML does not parse; file NOT written:\n{exc}")
+
+new_video = find_video(new_data, VIDEO_ID)
+if new_video is None:
+    sys.exit(f"{VIDEO_ID} disappeared from the parsed file; file NOT written")
+new_questions = new_video.get("questions") or []
+
+if new_questions[: len(old_questions)] != old_questions:
+    sys.exit("existing questions would change; file NOT written")
+if len(new_questions) != len(old_questions) + len(QUESTIONS):
+    sys.exit(f"expected {len(old_questions) + len(QUESTIONS)} questions, "
+             f"got {len(new_questions)}; file NOT written")
+
+fields_old = {k: v for k, v in old_video.items() if k != "questions"}
+fields_new = {k: v for k, v in new_video.items() if k != "questions"}
+if fields_old != fields_new:
+    sys.exit(f"{VIDEO_ID}'s other fields would change; file NOT written")
+
+others_old = [v for v in old_data["videos"] if v.get("video_id") != VIDEO_ID]
+others_new = [v for v in new_data["videos"] if v.get("video_id") != VIDEO_ID]
+if others_old != others_new:
+    sys.exit("another video's entry would change; file NOT written")
+
+PATH.write_text(new_text)
+print(f"added {len(QUESTIONS)} to {VIDEO_ID}; it now has {len(new_questions)}")
+for q in new_questions:
+    print(f"  {q['spans']}  {q['q']}")
+print("total labelled:", sum(len(v.get("questions") or []) for v in new_data["videos"]))

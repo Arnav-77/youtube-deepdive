@@ -66,6 +66,31 @@ videos:
           managing energy so you keep going. Labelled by watching, 28 Sep 2026.
           This is a RETRIEVAL failure, not a refusal case, and the clearest
           argument for dense retrieval in the set.
+      - q: "What should I do the moment I notice I've got distracted?"
+        spans: [[182, 268]]
+        quote: "you are interrupting the interruption"
+        note: >
+          OWN-WORDS CASE. The speaker names this habit 'correct after the
+          click'; the question avoids correct, click, interrupt and habit.
+          Caveat from the Markov video: if the speaker says 'distraction'
+          anywhere, stemming maps it and 'distracted' to the same root, and
+          lexical search will match.
+      - q: "What is the second habit talked about in this video?"
+        spans: [[282, 402]]
+        quote: "subscribe below"
+        note: >
+          ORDINAL QUESTION. The speaker says 'second habit' aloud, so lexical
+          search can find it through 'second' alone; 'habit' is in 19 of 20
+          fixed_1000_200 chunks and discriminates nothing. Deliberately wide
+          (2 min): the habit plus its explanation. The span opens on a
+          subscribe call-to-action.
+      - q: "What is the first energy habit talked about?"
+        spans: [[516, 604]]
+        quote: "doing half a pushup"
+        note: >
+          Same passage as the 'how to be consistent' label (480-610) but in the speaker's own vocabulary, so the pair differs only in wording. 'Energy habit' is the
+          speaker's phrase. Stated at 8:36, explained after. Watch whether
+          'first' pulls in the earlier habit sections instead.
 
   - video_id: p4qPp_3_f2Y
     set: dev
