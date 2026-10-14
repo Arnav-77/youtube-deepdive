@@ -138,6 +138,7 @@ def main():
     if offsets:
         late = [o for o in offsets if o > 0]
         print(f"  offset median {statistics.median(offsets):+.0f}s"
+              f"   |offset| median {statistics.median(abs(o) for o in offsets):.0f}s"
               f"   late: {len(late)}/{len(offsets)}"
               f"   worst late {max(late, default=0):+.0f}s")
 
