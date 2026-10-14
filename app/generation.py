@@ -53,12 +53,14 @@ _TEMPLATE = (Path(__file__).parent / "prompts" / f"{PROMPT_VERSION}.txt").read_t
 # be a config fix, not a code change.
 PRIMARY_MODEL = os.getenv("GEMINI_MODEL", "gemini/gemini-3.6-flash")
 
-# Empty on purpose. The architecture calls for a Groq fallback when Gemini's
-# rate limit is exhausted, but there is no Groq key yet and shipping
-# untested fallback code is worse than shipping none: it fails for the first
-# time on the day the primary is already failing. Add the model string here
-# once a key exists and the fallback has been exercised deliberately.
-FALLBACK_MODELS: list[str] = []
+# Tried in order when the primary model fails (LiteLLM's `fallbacks`). Read
+# from the environment, comma separated, so adding or changing a fallback is
+# a configuration change, e.g. "gemini/gemini-3.5-flash-lite,groq/<model>".
+# Made configurable 14 Oct 2026, after gemini-3.6-flash returned 503 "high
+# demand" repeatedly and four of five other Gemini flash models did the same.
+FALLBACK_MODELS: list[str] = [
+    m.strip() for m in os.getenv("FALLBACK_MODELS", "").split(",") if m.strip()
+]
 
 
 @dataclass
