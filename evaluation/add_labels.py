@@ -22,38 +22,42 @@ from pathlib import Path
 
 import yaml
 
-VIDEO_ID = "LXaFHI_2Hus"
+VIDEO_ID = "E0Hmnixke2g"
 
 # (question, gold spans in seconds, short quote for the labeller, note)
 QUESTIONS = [
     (
-        "What should I do the moment I notice I've got distracted?",
-        [[182, 268]],
-        "you are interrupting the interruption",
-        "OWN-WORDS CASE. The speaker names this habit 'correct after the click'; "
-        "the question avoids correct, click, interrupt and habit. Caveat from the "
-        "Markov video: if the speaker says 'distraction' anywhere, stemming maps it "
-        "and 'distracted' to the same root, and lexical search will match.",
+        "What is supervised learning?",
+        [[60, 95]],
+        "height, weight, size of the ears",
+        "Uses the speaker's own term. 'learn' is likely in most chunks of an "
+        "ML overview, so 'supervis' has to carry the match.",
     ),
     (
-        "What is the second habit talked about in this video?",
-        [[282, 402]],
-        "subscribe below",
-        "ORDINAL QUESTION. The speaker says 'second habit' aloud, so lexical search "
-        "can find it through 'second' alone; 'habit' is in 19 of 20 fixed_1000_200 "
-        "chunks and discriminates nothing. Deliberately wide (2 min): the habit plus "
-        "its explanation. The span opens on a subscribe call-to-action.",
+        "How does a model get trained on data where every example comes with the correct answer?",
+        [[60, 95]],
+        "height, weight, size of the ears",
+        "OWN-WORDS PAIR with 'What is supervised learning?', same span. Wording "
+        "drafted by Claude at Arnav's request; span is Arnav's. Avoids "
+        "'supervised' and the stem 'learn'. Vocabulary overlap with the gold "
+        "chunk to be measured with explain_query.py after the first run.",
     ),
     (
-        "What is the first energy habit talked about?",
-        [[516, 604]],
-        "doing half a pushup",
-        "First label in the second half of the video. 'Energy habit' is the "
-        "speaker's phrase. Stated at 8:36, explained after. Watch whether 'first' "
-        "pulls in the earlier habit sections instead.",
+        "What is linear regression?",
+        [[150, 241]],
+        "neural networks are an extension of this very simple idea",
+        "The end of this span mentions neural networks without explaining "
+        "them: a planted distractor for the neural networks question.",
+    ),
+    (
+        "What are neural networks?",
+        [[629, 762]],
+        "just know they result in good predictions",
+        "Deliberately wide (2 min 13 s): the whole explanation. Distractor: "
+        "the linear regression section near 4:00 says neural networks extend "
+        "that idea, which matches the words but is not the answer.",
     ),
 ]
-
 PATH = Path(__file__).resolve().parent / "golden_set.yaml"
 
 
