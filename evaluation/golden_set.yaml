@@ -330,7 +330,30 @@ videos:
     category: educational
     captions: auto
     note: confusion matrix, tensorflow
-    questions: []
+    questions:
+      - q: "what are the different categories of machine learning"
+        spans: [[80, 212]]
+        quote: "and then there is also"
+        note: >
+          Deliberately wide (2 min 12 s): the answer is a list of categories
+          and the span covers the whole list.
+      - q: "why do we need a confusion matrix in the first place?"
+        spans: [[267, 342]]
+        quote: "with an accuracy of 80%"
+        note: >
+          Tests the topic-word pattern: 'confusion matrix' is this video's
+          subject, likely in most chunks, so it may not discriminate; the
+          other terms are generic.
+      - q: "what is sklearn?"
+        spans: [[880, 900]]
+        quote: "this is not answered very well"
+        note: >
+          PARTIAL-ANSWER CASE for Phase 04 grounding: the video mentions
+          sklearn but barely explains it. The model knows what sklearn is, so
+          a fluent answer from its own knowledge is a grounding failure even
+          if true; the correct answer is limited to what these 20 s say. For
+          retrieval, matches only if the captions write 'sklearn' as one
+          token.
 
   - video_id: RmajweUFKvM
     set: reported

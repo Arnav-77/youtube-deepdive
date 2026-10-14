@@ -22,31 +22,34 @@ from pathlib import Path
 
 import yaml
 
-VIDEO_ID = "4HKqjENq9OU"
+VIDEO_ID = "prWyZhcktn4"
 
 # (question, gold spans in seconds, short quote for the labeller, note)
 QUESTIONS = [
     (
-        "what the hell is knn?",
-        [[153, 226]],
-        "since 4 out of 5 neighbors are red",
-        "Real user phrasing. After stopwords only 'hell' and 'knn' remain, so this "
-        "tests the abbreviation: it matches only if the captions write 'knn' as one "
-        "token, not 'k-nearest neighbors' or 'k n n'.",
+        "what are the different categories of machine learning",
+        [[80, 212]],
+        "and then there is also",
+        "Deliberately wide (2 min 12 s): the answer is a list of categories and "
+        "the span covers the whole list.",
     ),
     (
-        "when do we know knn is to be used",
-        [[350, 399]],
-        "for using smaller datasets",
-        "Reduces to know, knn, use: generic terms, little for lexical ranking to "
-        "work with.",
+        "why do we need a confusion matrix in the first place?",
+        [[267, 342]],
+        "with an accuracy of 80%",
+        "Tests the topic-word pattern: 'confusion matrix' is this video's subject, "
+        "likely in most chunks, so it may not discriminate; the other terms are "
+        "generic.",
     ),
     (
-        "what is the distance formula used in the algorithm",
-        [[441, 459]],
-        "and the y side",
-        "Tight 18 s span on the formula itself; the question avoids the formula's "
-        "name. Assumes only one distance measure is explained in the video.",
+        "what is sklearn?",
+        [[880, 900]],
+        "this is not answered very well",
+        "PARTIAL-ANSWER CASE for Phase 04 grounding: the video mentions sklearn "
+        "but barely explains it. The model knows what sklearn is, so a fluent "
+        "answer from its own knowledge is a grounding failure even if true; the "
+        "correct answer is limited to what these 20 s say. For retrieval, matches "
+        "only if the captions write 'sklearn' as one token.",
     ),
 ]
 PATH = Path(__file__).resolve().parent / "golden_set.yaml"
