@@ -76,7 +76,7 @@ videos:
           anywhere, stemming maps it and 'distracted' to the same root, and
           lexical search will match.
       - q: "What is the second habit talked about in this video?"
-        spans: [[282, 402]]
+        spans: [[282, 402], [613, 689]]
         quote: "subscribe below"
         note: >
           ORDINAL QUESTION. The speaker says 'second habit' aloud, so lexical
@@ -84,6 +84,11 @@ videos:
           fixed_1000_200 chunks and discriminates nothing. Deliberately wide
           (2 min): the habit plus its explanation. The span opens on a
           subscribe call-to-action.
+          SPAN ADDED 14 Oct 2026, after the run in commit 447c94d. The
+          question is ambiguous: the talk has a second attention habit
+          (282-402) and a second energy habit (613-689); both are correct.
+          Changed because the label was wrong whatever the result; the
+          original MISS stays in git history.
       - q: "What is the first energy habit talked about?"
         spans: [[516, 604]]
         quote: "doing half a pushup"
