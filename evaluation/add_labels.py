@@ -22,40 +22,31 @@ from pathlib import Path
 
 import yaml
 
-VIDEO_ID = "E0Hmnixke2g"
+VIDEO_ID = "4HKqjENq9OU"
 
 # (question, gold spans in seconds, short quote for the labeller, note)
 QUESTIONS = [
     (
-        "What is supervised learning?",
-        [[60, 95]],
-        "height, weight, size of the ears",
-        "Uses the speaker's own term. 'learn' is likely in most chunks of an "
-        "ML overview, so 'supervis' has to carry the match.",
+        "what the hell is knn?",
+        [[153, 226]],
+        "since 4 out of 5 neighbors are red",
+        "Real user phrasing. After stopwords only 'hell' and 'knn' remain, so this "
+        "tests the abbreviation: it matches only if the captions write 'knn' as one "
+        "token, not 'k-nearest neighbors' or 'k n n'.",
     ),
     (
-        "How does a model get trained on data where every example comes with the correct answer?",
-        [[60, 95]],
-        "height, weight, size of the ears",
-        "OWN-WORDS PAIR with 'What is supervised learning?', same span. Wording "
-        "drafted by Claude at Arnav's request; span is Arnav's. Avoids "
-        "'supervised' and the stem 'learn'. Vocabulary overlap with the gold "
-        "chunk to be measured with explain_query.py after the first run.",
+        "when do we know knn is to be used",
+        [[350, 399]],
+        "for using smaller datasets",
+        "Reduces to know, knn, use: generic terms, little for lexical ranking to "
+        "work with.",
     ),
     (
-        "What is linear regression?",
-        [[150, 241]],
-        "neural networks are an extension of this very simple idea",
-        "The end of this span mentions neural networks without explaining "
-        "them: a planted distractor for the neural networks question.",
-    ),
-    (
-        "What are neural networks?",
-        [[629, 762]],
-        "just know they result in good predictions",
-        "Deliberately wide (2 min 13 s): the whole explanation. Distractor: "
-        "the linear regression section near 4:00 says neural networks extend "
-        "that idea, which matches the words but is not the answer.",
+        "what is the distance formula used in the algorithm",
+        [[441, 459]],
+        "and the y side",
+        "Tight 18 s span on the formula itself; the question avoids the formula's "
+        "name. Assumes only one distance measure is explained in the video.",
     ),
 ]
 PATH = Path(__file__).resolve().parent / "golden_set.yaml"

@@ -348,4 +348,24 @@ videos:
     category: educational
     captions: auto
     note: kNN algorithm
-    questions: []
+    questions:
+      - q: "what the hell is knn?"
+        spans: [[153, 226]]
+        quote: "since 4 out of 5 neighbors are red"
+        note: >
+          Real user phrasing. After stopwords only 'hell' and 'knn' remain, so
+          this tests the abbreviation: it matches only if the captions write
+          'knn' as one token, not 'k-nearest neighbors' or 'k n n'.
+      - q: "when do we know knn is to be used"
+        spans: [[350, 399]]
+        quote: "for using smaller datasets"
+        note: >
+          Reduces to know, knn, use: generic terms, little for lexical ranking
+          to work with.
+      - q: "what is the distance formula used in the algorithm"
+        spans: [[441, 459]]
+        quote: "and the y side"
+        note: >
+          Tight 18 s span on the formula itself; the question avoids the
+          formula's name. Assumes only one distance measure is explained in
+          the video.
