@@ -35,6 +35,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from app.embeddings import MODEL_KEY, embed_query
 
 DEFAULT_TOP_K = 5
 
@@ -156,4 +157,134 @@ def to_log_payload(results: list[Retrieved]) -> list[dict]:
     return [
         {"chunk_id": r.chunk_id, "score": round(r.score, 6), "rank": r.rank}
         for r in results
+    ]
+# ---------------------------------------------------------------------------
+# PHASE 03: DENSE AND HYBRID RETRIEVAL
+# ---------------------------------------------------------------------------
+
+
+class MissingEmbeddings(RuntimeError):
+    """Dense search was asked about chunks that have no stored embedding.
+
+    Raised rather than returning a short or empty list: a silent empty result
+    would be scored as a MISS and make dense retrieval look worse than it is.
+    """
+
+
+# Chunks of this video and run that have no embedding for the current model.
+_UNEMBEDDED_SQL = text("""
+    SELECT count(*)
+    FROM chunks c
+    LEFT JOIN chunk_embeddings e ON e.chunk_id = c.id AND e.model = :model
+    WHERE c.video_id = :video_id
+      AND c.chunking_run = :run
+      AND e.chunk_id IS NULL
+""")
+
+# <=> is pgvector's cosine DISTANCE operator: 0 for identical direction, up to
+# 2 for opposite. Ordering by distance ascending is ranking by similarity.
+# The vectors are unit length (app/embeddings.py), so cosine and dot product
+# agree. 1 - distance is reported as the score; as with ts_rank, only the
+# ordering means anything (unrelated text measured ~0.54 on 14 Oct).
+_DENSE_SQL = text("""
+    SELECT
+        c.id,
+        c.text,
+        c.start_seconds,
+        c.end_seconds,
+        1 - (e.embedding <=> CAST(:qvec AS vector)) AS score
+    FROM chunks c
+    JOIN chunk_embeddings e ON e.chunk_id = c.id AND e.model = :model
+    WHERE c.video_id = :video_id
+      AND c.chunking_run = :run
+    ORDER BY e.embedding <=> CAST(:qvec AS vector), c.chunk_index ASC
+    LIMIT :k
+""")
+
+
+def dense_search(
+    session: Session,
+    video_id: str,
+    query: str,
+    chunking_run: str,
+    top_k: int = DEFAULT_TOP_K,
+) -> list[Retrieved]:
+    """Top_k chunks by embedding similarity to the question, best first.
+
+    Unlike lexical search this NEVER returns fewer than top_k for a video with
+    enough chunks: every chunk has some similarity. So dense retrieval cannot
+    say "nothing here"; refusing to answer has to come from somewhere else
+    (the Phase 04 critic), not from a cosine threshold.
+
+    Exact scan, no vector index: a few hundred rows per video is nothing, and
+    an approximate index (HNSW) would make results approximate for no gain.
+    """
+    params = {"video_id": video_id, "run": chunking_run, "model": MODEL_KEY}
+    missing = session.execute(_UNEMBEDDED_SQL, params).scalar()
+    if missing:
+        raise MissingEmbeddings(
+            f"{missing} chunks of {video_id} ({chunking_run}) have no {MODEL_KEY} "
+            f"embedding; run evaluation/embed_chunks.py first"
+        )
+
+    rows = session.execute(
+        _DENSE_SQL, {**params, "qvec": embed_query(query), "k": top_k}
+    ).all()
+    return [
+        Retrieved(
+            chunk_id=row.id,
+            text=row.text,
+            start_seconds=float(row.start_seconds),
+            end_seconds=float(row.end_seconds),
+            score=float(row.score),
+            rank=i + 1,
+        )
+        for i, row in enumerate(rows)
+    ]
+
+
+# Reciprocal Rank Fusion (Cormack, Clarke and Buttcher, 2009). Each list
+# contributes 1 / (RRF_K + rank) per chunk; the contributions are summed.
+# Ranks only, never raw scores: ts_rank and cosine live on unrelated scales,
+# so adding them would let whichever scale is larger dominate. 60 is the
+# constant from the paper and the common default; it is not tuned here.
+RRF_K = 60
+HYBRID_CANDIDATES = 20
+
+
+def hybrid_search(
+    session: Session,
+    video_id: str,
+    query: str,
+    chunking_run: str,
+    top_k: int = DEFAULT_TOP_K,
+) -> list[Retrieved]:
+    """Fuse the lexical and dense top-20 lists with RRF, return the top_k.
+
+    A chunk ranked well by both methods rises; a chunk found by only one still
+    gets that one contribution, which is how hybrid keeps lexical's exact
+    matches (abbreviations, names) and dense's paraphrase matches together.
+    """
+    lexical = search(session, video_id, query, chunking_run, HYBRID_CANDIDATES)
+    dense = dense_search(session, video_id, query, chunking_run, HYBRID_CANDIDATES)
+
+    fused: dict[int, float] = {}
+    first_seen: dict[int, Retrieved] = {}
+    for results in (lexical, dense):
+        for r in results:
+            fused[r.chunk_id] = fused.get(r.chunk_id, 0.0) + 1.0 / (RRF_K + r.rank)
+            first_seen.setdefault(r.chunk_id, r)
+
+    # Ties broken by position in the video, so the order is deterministic.
+    order = sorted(fused, key=lambda cid: (-fused[cid], first_seen[cid].start_seconds))
+    return [
+        Retrieved(
+            chunk_id=cid,
+            text=first_seen[cid].text,
+            start_seconds=first_seen[cid].start_seconds,
+            end_seconds=first_seen[cid].end_seconds,
+            score=fused[cid],
+            rank=i + 1,
+        )
+        for i, cid in enumerate(order[:top_k])
     ]

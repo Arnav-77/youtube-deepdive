@@ -29,6 +29,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import UserDefinedType
 
 from app.db import Base
 
@@ -179,3 +180,61 @@ class QueryLog(Base):
     # Populated when the request failed. A row with an error and a null
     # answer is a failure case -- exactly what Phase 04 mines for the golden set
     error: Mapped[str | None] = mapped_column(Text)
+
+class Vector(UserDefinedType):
+    """pgvector's `vector(n)` column type, declared without the pgvector package.
+
+    The pgvector Python package would also pull in numpy, and the app never does
+    vector maths in Python: Postgres does it. All SQLAlchemy needs is the column's
+    SQL type name. Vectors are sent and read as text and cast in SQL, e.g.
+    CAST(:v AS vector).
+    """
+
+    cache_ok = True
+
+    def __init__(self, dims: int):
+        self.dims = dims
+
+    def get_col_spec(self, **kw):
+        return f"vector({self.dims})"
+
+
+EMBED_DIMS = 768
+
+
+class ChunkEmbedding(Base):
+    """One embedding per (chunk, model).
+
+    A separate table rather than a column on `chunks`, for two reasons: chunk rows
+    are append-only and must never be UPDATEd, and vectors from different models
+    are not comparable, so two models must be able to coexist without one
+    overwriting the other.
+    """
+
+    __tablename__ = "chunk_embeddings"
+
+    chunk_id: Mapped[int] = mapped_column(ForeignKey("chunks.id"), primary_key=True)
+    model: Mapped[str] = mapped_column(String(100), primary_key=True)
+    embedding: Mapped[str] = mapped_column(Vector(EMBED_DIMS), nullable=False)  # read/written as text
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class QueryEmbedding(Base):
+    """Cache of question embeddings, keyed by a hash of the exact text plus the model.
+
+    Evaluation re-runs the same questions many times, the free tier caps embedding
+    requests per day, and the same text always gives the same vector from the
+    same model. The key includes the model because a vector from one model is
+    meaningless next to vectors from another.
+    """
+
+    __tablename__ = "query_embeddings"
+
+    text_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    model: Mapped[str] = mapped_column(String(100), primary_key=True)
+    embedding: Mapped[str] = mapped_column(Vector(EMBED_DIMS), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

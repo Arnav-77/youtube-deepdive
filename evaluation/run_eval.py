@@ -41,6 +41,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.db import SessionLocal
 from app.retrieval import search
+from app.embeddings import CACHE_STATS
+from app.retrieval import dense_search, hybrid_search, search
+
+METHODS = {"lexical": search, "dense": dense_search, "hybrid": hybrid_search}
 
 
 def overlaps(chunk_start, chunk_end, spans):
@@ -53,7 +57,7 @@ def overlaps(chunk_start, chunk_end, spans):
     return any(chunk_start < end and start < chunk_end for start, end in spans)
 
 
-def evaluate(session, data, chunking_run, k, set_filter):
+def evaluate(session, data, chunking_run, k, set_filter, retrieve=search):
     hits_at_k, reciprocal_ranks, offsets = [], [], []
     refusals_correct, refusals_total = 0, 0
     rows = []
@@ -64,7 +68,7 @@ def evaluate(session, data, chunking_run, k, set_filter):
 
         for question in video["questions"]:
             spans = question.get("spans") or []
-            results = search(session, video["video_id"], question["q"], chunking_run, k)
+            results = retrieve(session, video["video_id"], question["q"], chunking_run, k)
 
             # No gold span: the correct behaviour is to retrieve nothing.
             if not spans:
@@ -112,6 +116,7 @@ def main():
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--set", default="dev", choices=["dev", "reported", "all"],
                         help="dev while tuning; reported only for final numbers")
+    parser.add_argument("--method", default="lexical", choices=sorted(METHODS))
     args = parser.parse_args()
 
     path = Path(__file__).resolve().parent / "golden_set.yaml"
@@ -120,11 +125,11 @@ def main():
     session = SessionLocal()
     try:
         hits, rr, offsets, ref_ok, ref_n, rows = evaluate(
-            session, data, args.run, args.k, args.set)
+            session, data, args.run, args.k, args.set,METHODS[args.method])
     finally:
         session.close()
 
-    print(f"\nchunking_run={args.run}  k={args.k}  set={args.set}\n")
+    print(f"\nmethod={args.method}  chunking_run={args.run}  k={args.k}  set={args.set}\n")
     for video_id, q, verdict, detail in rows:
         print(f"  {video_id}  {verdict:<8} {detail:<28} {q[:44]}")
 
@@ -145,6 +150,7 @@ def main():
     if ref_n:
         print(f"  refusals      {ref_ok}/{ref_n} correct")
     print()
+    print(f"  query embeddings: {CACHE_STATS['hits']} cached, {CACHE_STATS['misses']} API requests")
 
 
 if __name__ == "__main__":
