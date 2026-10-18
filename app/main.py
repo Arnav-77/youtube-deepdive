@@ -12,8 +12,15 @@ import time
 
 from app.chunking import DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP, chunking_run_label
 from app.generation import PROMPT_VERSION, generate
+from app.embeddings import EmbeddingError, embed_missing_chunks
 from app.models import QueryLog
-from app.retrieval import DEFAULT_TOP_K, search, to_log_payload
+from app.retrieval import (
+    DEFAULT_TOP_K,
+    MissingEmbeddings,
+    dense_search,
+    search,
+    to_log_payload,
+)
 from app.youtube import extract_video_id
 
 from app.db import get_session
@@ -23,6 +30,24 @@ SERVICE_NAME = "deepdive-api"
 # Render injects RENDER_GIT_COMMIT with the SHA of the commit it built.
 # Not set locally, so fall back to something recognisable.
 GIT_COMMIT = os.getenv("RENDER_GIT_COMMIT", "local")
+
+# Which search /ask uses: "dense" (meaning search, measured better on 14 Oct:
+# Recall@5 14/14 vs 12/14 on the reported set) or "lexical" (word search, the
+# Phase 02 baseline). A setting rather than code, so it can be switched back
+# from Render's dashboard without a commit. Checked at startup: a typo here
+# should stop the app, not surface on the first real question (lesson of the
+# "emini/" fallback typo, 14 Oct).
+RETRIEVAL_METHOD = os.getenv("RETRIEVAL_METHOD", "dense").strip().lower()
+if RETRIEVAL_METHOD not in {"dense", "lexical"}:
+    raise RuntimeError(
+        f"RETRIEVAL_METHOD must be 'dense' or 'lexical', got {RETRIEVAL_METHOD!r}"
+    )
+
+# On the request path the question's embedding gets one try with a short
+# timeout. The batch script can afford five patient retries; a person waiting
+# on /ask cannot, and word search is a working answer in the meantime.
+LIVE_EMBED_ATTEMPTS = 1
+LIVE_EMBED_TIMEOUT_S = 10.0
 
 app = FastAPI(title="YouTube Deep-Dive API", version="0.1.0")
 
@@ -100,6 +125,8 @@ class IngestResponse(BaseModel):
     snippet_count: int
     chunk_count: int
     chunking_run: str
+    # Chunks embedded by THIS call; 0 on a repeat call for a complete video.
+    embedded_count: int
 
 
 @app.post("/videos", response_model=IngestResponse)
@@ -142,6 +169,22 @@ def ingest(payload: IngestRequest, session: Session = Depends(get_session)):
 
     chunks = store_chunks(session, video)
 
+    # Make the chunks searchable by meaning. Without this, a video added after
+    # the switch to dense retrieval would have chunks but no embeddings, and
+    # every question about it would fall back to word search.
+    run = chunking_run_label(DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP)
+    try:
+        embedded = embed_missing_chunks(session, video.video_id, run)
+    except EmbeddingError as exc:
+        # Transcript and chunks are already saved, and embedding only sends
+        # what is missing, so repeating the same request finishes the job.
+        print(f"embedding failed for {video.video_id}: {exc!r}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Transcript saved, but embedding failed ({type(exc).__name__}). "
+                   "Send the same request again to finish.",
+        )
+
     return IngestResponse(
         video_id=video.video_id,
         source=video.source,
@@ -149,6 +192,7 @@ def ingest(payload: IngestRequest, session: Session = Depends(get_session)):
         snippet_count=len(video.raw_transcript),
         chunk_count=len(chunks),
         chunking_run=chunks[0].chunking_run if chunks else "",
+        embedded_count=embedded,
     )
 class AskRequest(BaseModel):
     """A question about one video.
@@ -221,6 +265,29 @@ def _write_log(session: Session, row: QueryLog) -> None:
         )
 
 
+def _retrieve(session: Session, video_id: str, question: str, run: str, top_k: int):
+    """Run the configured search. Returns (hits, label for query_logs).
+
+    If dense is configured but cannot run for this request -- chunks with no
+    embedding, or the embedding API failing -- fall back to word search rather
+    than fail, and say so in the label. A fallback is invisible to the user;
+    the label is what keeps it visible in the log.
+    """
+    if RETRIEVAL_METHOD == "lexical":
+        return search(session, video_id, question, run, top_k), "lexical"
+    try:
+        hits = dense_search(
+            session, video_id, question, run, top_k,
+            embed_attempts=LIVE_EMBED_ATTEMPTS,
+            embed_timeout=LIVE_EMBED_TIMEOUT_S,
+        )
+        return hits, "dense"
+    except (MissingEmbeddings, EmbeddingError) as exc:
+        print(f"dense retrieval unavailable, using lexical: {exc!r}")
+        hits = search(session, video_id, question, run, top_k)
+        return hits, f"lexical_fallback:{type(exc).__name__}"
+
+
 @app.post("/ask", response_model=AskResponse)
 def ask(payload: AskRequest, session: Session = Depends(get_session)):
     """Answer a question about a video, grounded in retrieved transcript.
@@ -251,7 +318,9 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)):
 
         log.video_id = video_id
 
-        hits = search(session, video_id, payload.question, run, payload.top_k)
+        hits, log.retrieval_method = _retrieve(
+            session, video_id, payload.question, run, payload.top_k
+        )
         log.retrieved_chunks = to_log_payload(hits)
 
         result = generate(payload.question, hits)

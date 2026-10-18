@@ -164,6 +164,13 @@ class QueryLog(Base):
     # real traffic. NULL on every row written before this column existed.
     commit_sha: Mapped[str | None] = mapped_column(String(40))
 
+    # Which search produced retrieved_chunks: "lexical", "dense", or
+    # "lexical_fallback:<reason>" when dense was configured but could not run
+    # for this request. Without it, rows from before and after the switch to
+    # dense retrieval, and fallback rows, would be indistinguishable. NULL on
+    # every row written before 18 Oct 2026; all of those were lexical.
+    retrieval_method: Mapped[str | None] = mapped_column(String(64))
+
     prompt_tokens: Mapped[int | None] = mapped_column(Integer)
     completion_tokens: Mapped[int | None] = mapped_column(Integer)
     estimated_cost_usd: Mapped[float | None] = mapped_column(Float)

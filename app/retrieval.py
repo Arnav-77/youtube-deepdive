@@ -35,7 +35,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from app.embeddings import MODEL_KEY, embed_query
+from app.embeddings import MAX_ATTEMPTS, MODEL_KEY, REQUEST_TIMEOUT_S, embed_query
 
 DEFAULT_TOP_K = 5
 
@@ -208,6 +208,8 @@ def dense_search(
     query: str,
     chunking_run: str,
     top_k: int = DEFAULT_TOP_K,
+    embed_attempts: int = MAX_ATTEMPTS,
+    embed_timeout: float = REQUEST_TIMEOUT_S,
 ) -> list[Retrieved]:
     """Top_k chunks by embedding similarity to the question, best first.
 
@@ -228,7 +230,8 @@ def dense_search(
         )
 
     rows = session.execute(
-        _DENSE_SQL, {**params, "qvec": embed_query(query), "k": top_k}
+        _DENSE_SQL,
+        {**params, "qvec": embed_query(query, embed_attempts, embed_timeout), "k": top_k},
     ).all()
     return [
         Retrieved(
