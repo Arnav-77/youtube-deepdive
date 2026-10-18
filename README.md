@@ -24,13 +24,13 @@ if you can verify it, so every claim carries a timestamp you can click.
 
 ## Pipeline
 
-YouTube URL
-→ transcript fetch (youtube-transcript-api)
-→ chunking with timestamp metadata
-→ retrieval (Postgres full-text search)
-→ generation (Gemini via LiteLLM)
-→ answer with citations resolved to video timestamps
-→ request logged to Postgres
+1. **Fetch** the transcript for a YouTube URL (youtube-transcript-api).
+2. **Chunk** it into pieces of about 1,000 characters, each with its start and end time.
+3. **Embed** each chunk (gemini-embedding-001, 768 dimensions) and store the vectors in Postgres with pgvector.
+4. **Retrieve** the 5 chunks closest in meaning to the question (cosine similarity). Word search is the logged fallback.
+5. **Generate** an answer from those chunks only (Gemini via LiteLLM, with a backup model).
+6. **Cite**: the model writes `[1]`, `[2]`, and the application turns each into a timestamp link.
+7. **Log** every request to Postgres, including the ones that fail.
 
 
 ## Design decisions
@@ -76,10 +76,20 @@ inspecting real data and confirmed by opening the video at the timestamp; no
 unit test would have caught it, because the wrong timestamps are internally
 consistent and correctly typed.
 
-**Two datastores, deliberately.** Postgres on Neon holds transcripts, chunks
-and logs. Render's free Postgres deletes itself 30 days after creation, and
-this project runs for 13 weeks, so the platform would have destroyed the
-logging table twice before submission.
+**One datastore, deliberately.** Postgres on Neon holds transcripts, chunks,
+embeddings (through pgvector) and logs, so search runs as SQL against the same
+rows the logs point to. The original plan used ChromaDB for vectors, but
+Render's free tier has no persistent disk, so a local vector index would be
+wiped on every deploy. Neon rather than Render's own Postgres because Render's
+free database deletes itself 30 days after creation, which would have
+destroyed the logging table twice before submission.
+
+**The retrieval method is a setting, and every request records which one
+ran.** `RETRIEVAL_METHOD` selects dense or word search and is checked at
+startup, so a typo stops the deploy instead of failing the first real
+question. If dense search cannot run for a request (a chunk with no embedding,
+or the embedding service failing), the request falls back to word search and
+its log row says `lexical_fallback:<reason>`, so a fallback is never invisible.
 
 ## Measured results
 
@@ -91,7 +101,7 @@ Numbers from the deployed system, not estimates.
 | Warm response, `/health` | 0.32 s |
 | End-to-end `/ask`, same request, observed range | 3.6 s to 27.1 s |
 | Application's own share of that latency | under 1 s |
-| Benchmark corpus | 16 videos, ~1,030 chunks |
+| Benchmark corpus | 23 videos, 1,574 chunks, all embedded |
 
 The latency range is the interesting result. The same question, with identical
 retrieval and identical code, varied roughly sevenfold across runs. A
@@ -102,9 +112,34 @@ therefore over 90% of every request, and the system's P95 latency is
 effectively the model provider's P95. No amount of optimising this codebase
 would move it.
 
-Retrieval quality figures are not reported yet. The evaluation harness runs and
-produces Recall@k, MRR and citation offset, but the benchmark is only partly
-labelled, and a number from two questions would not mean anything.
+### Retrieval quality
+
+19 hand-labelled questions on 5 videos: 14 on 4 reported videos and 5 on one
+development video. `fixed_1000_200` chunks, top 5 retrieved.
+
+| Reported set (14 questions) | Word search | Dense | Hybrid (RRF) |
+|---|---|---|---|
+| Recall@5 | 0.86 (12/14) | 1.00 (14/14) | 1.00 (14/14) |
+| Right chunk ranked first | 7/14 | 12/14 | 10/14 |
+| MRR | 0.63 | 0.92 | 0.82 |
+| Median distance of citation from the answer | 40 s | 15 s | 22 s |
+| Citations landing late (of those found) | 1/12 | 5/14 | 3/14 |
+
+Compared question by question across all 19, dense ranked the right chunk
+higher than word search on 9, equal on 10 and lower on none. With so few
+questions, from only five videos, that is a clear direction rather than a final
+result. Dense has been the live method since October 2026. Hybrid scored below
+dense because on none of these questions did word search rank the right chunk
+above dense, so mixing it in could only pull rankings down; the questions
+contain no case where exact matching should win (rare names, new terms), so
+hybrid stays in the code as a tested alternative.
+
+Retrieval is not the whole story. The first real user's question, "how to be
+consistent", found nothing under word search because the speaker never says the
+word. Under dense search the right passage is retrieved, and the model still
+replies that the excerpts do not contain the answer. A retrieval failure became
+a generation failure, and the log shows which. Measuring whether answers are
+supported by the passages they cite is the next stage.
 
 ## Evaluation
 
@@ -138,26 +173,43 @@ Built and deployed:
 
 - Transcript ingestion with caption-overlap correction
 - Fixed-size chunking with timestamp metadata, as a measured baseline
-- Lexical retrieval (Postgres full-text search)
-- Grounded generation with code-validated citations
-- Complete per-request logging
-- Retrieval evaluation harness
-- Benchmark video set, 16 of 25 chosen and ingested
+- Dense retrieval (Gemini embeddings in pgvector), live since October 2026, with word search as a logged fallback
+- Embeddings created automatically when a video is added
+- Grounded generation with code-validated citations and a backup model
+- Complete per-request logging, including which retrieval method answered
+- Retrieval evaluation harness comparing word, dense and hybrid search
+- Benchmark: 23 of 25 videos chosen and ingested, 19 questions labelled
 
 In progress:
 
-- Hand-labelling the golden set
-- Dense retrieval via a hosted embedding API
-- Topic-shift chunking, measured against the fixed-size baseline
-- Hybrid retrieval and cross-encoder reranking
+- Hand-labelling the rest of the golden set
+- Measuring whether answers are supported by the passages they cite
 
 Planned:
 
-- Runtime grounding critic
+- Runtime grounding critic, using the same definition as the offline measurement
+- Topic-shift chunking, measured against the fixed-size baseline
+- Follow-up questions (multi-turn conversation)
+- A simple chat page in place of `/docs`
 - Cross-video synthesis across 2-3 videos on one topic
-- Tracing, cost tracking and prompt versioning per trace
+- Tracing, P95 latency and cost reporting
+
+Not planned before submission:
+
+- Cross-encoder reranking (no free place to run the model)
+- Whisper transcription for videos without captions
 
 ## Limitations
+
+**The live server cannot add new videos.** YouTube refuses transcript requests
+from cloud servers (`RequestBlocked`, observed October 2026). Videos are added
+from a home connection that writes to the same database, and the live site
+answers questions about those. Asking about a video that has not been added
+returns 404.
+
+**A refusal is logged as an answer.** A reply saying the excerpts do not
+contain the answer is recorded with status `answered`. Telling the two apart
+belongs to the grounding critic.
 
 **Citations resolve to a chunk, not to a sentence.** A 1000-character chunk can
 span over a minute, so a citation can land up to a minute before the claim it
@@ -177,10 +229,11 @@ parameter is being deprecated. Any evaluation must therefore run each question
 several times and report the spread, or an apparent improvement cannot be
 distinguished from sampling noise.
 
-**English only.** The embedding model and the Postgres full-text configuration
-are both English. Videos whose captions are auto-translated rather than
-auto-transcribed are excluded, because the retrievable text would not be the
-words spoken.
+**English only.** Transcripts are fetched in English, the transcript library's
+default, and the word-search fallback uses Postgres's English configuration.
+The embedding model supports other languages, but nothing here has been tested
+on them. Videos whose captions are auto-translated rather than auto-transcribed
+are excluded, because the retrievable text would not be the words spoken.
 
 **Cost figures are list prices.** The per-request cost recorded in the logs is
 computed from published rates, not billed. On a free tier the real constraint is
@@ -194,7 +247,8 @@ judge where an answer is.
 
 ## Stack
 
-Python, FastAPI, PostgreSQL (Neon), SQLAlchemy, Alembic, LiteLLM over Gemini,
+Python, FastAPI, PostgreSQL (Neon) with pgvector, SQLAlchemy, Alembic, LiteLLM
+over Gemini, Gemini embeddings (gemini-embedding-001) over plain HTTPS,
 youtube-transcript-api, Docker, Render.
 
 ## Licence
@@ -217,9 +271,11 @@ pip install -r requirements.txt
 
 Copy `.env.example` to `.env` and fill in:
 
-DATABASE_URL=postgresql+psycopg://user:password@host/dbname?sslmode=require
-GEMINI_API_KEY=your-key
-GEMINI_MODEL=gemini/gemini-3.6-flash
+- `DATABASE_URL=postgresql+psycopg://user:password@host/dbname?sslmode=require`
+- `GEMINI_API_KEY=your-key` (used for both answers and embeddings)
+- `GEMINI_MODEL=gemini/gemini-3.6-flash` (optional; this is the default)
+- `FALLBACK_MODELS=gemini/gemini-3.5-flash-lite` (optional, comma separated)
+- `RETRIEVAL_METHOD=dense` (optional; `dense` or `lexical`, checked at startup)
 
 
 The `postgresql+psycopg://` prefix matters. Plain `postgresql://` makes
@@ -235,6 +291,10 @@ python run.py
 
 It serves on port 8000 by default, or on `$PORT` if set. Interactive API docs
 are at `/docs`.
+
+Videos added through `POST /videos` are embedded automatically. Chunks that
+already existed can be embedded with `python evaluation/embed_chunks.py --videos all`,
+which is resumable and paced under the free tier's limits.
 
 ### With Docker
 
@@ -256,8 +316,8 @@ docker run --env-file .env -p 8000:8000 --cpus=0.1 --memory=512m deepdive
 |---|---|---|
 | GET | `/health` | Liveness. Touches no dependencies, returns the commit SHA. |
 | GET | `/ready` | Readiness. Checks the database. |
-| POST | `/videos` | Ingest a video: fetch transcript, chunk, store. |
-| POST | `/ask` | Ask a question about an ingested video. |
+| POST | `/videos` | Add a video: fetch transcript, chunk, embed, store. Repeating it finishes an interrupted embedding. |
+| POST | `/ask` | Ask a question about an added video. Returns 404 if the video has not been added. |
 
 `/health` deliberately checks nothing external. A health check that fails on a
 transient database blip makes the platform restart the application, which fixes
@@ -265,19 +325,22 @@ nothing and drops in-flight requests.
 
 ## Layout
 
-app/
-main.py FastAPI app, endpoints, citation resolution
-models.py SQLAlchemy models: videos, chunks, query_logs
-db.py engine and session
-youtube.py URL parsing, transcript fetch, ingestion
-chunking.py fixed-size chunking with timestamp metadata
-retrieval.py Postgres full-text search
-generation.py prompt rendering, model call, citation validation
-prompts/ versioned prompt templates
-alembic/ database migrations
-evaluation/
-golden_set.yaml hand-written relevance labels
-run_eval.py retrieval harness: Recall@k, MRR, citation offset
+| Path | What it is |
+|---|---|
+| `app/main.py` | FastAPI app, endpoints, citation resolution, request logging |
+| `app/models.py` | SQLAlchemy models: videos, chunks, query_logs, chunk and question embeddings |
+| `app/db.py` | Engine and session |
+| `app/youtube.py` | URL parsing, transcript fetch, ingestion |
+| `app/chunking.py` | Fixed-size chunking with timestamp metadata |
+| `app/embeddings.py` | Gemini embedding client: batching, rate-limit pacing, question cache |
+| `app/retrieval.py` | Word search, dense search and hybrid (RRF) search |
+| `app/generation.py` | Prompt rendering, model call with a backup, citation validation |
+| `app/prompts/` | Versioned prompt templates |
+| `alembic/` | Database migrations |
+| `evaluation/golden_set.yaml` | Hand-written relevance labels |
+| `evaluation/run_eval.py` | Retrieval harness: Recall@k, MRR, citation offset |
+| `evaluation/explain_query.py` | How every chunk ranked for one question, and why |
+| `evaluation/embed_chunks.py` | Resumable embedding backfill for existing chunks |
 
 
 ## Running the evaluation
@@ -296,7 +359,10 @@ python evaluation/run_eval.py --run fixed_1000_200 --k 5 --set dev
 ```
 
 `--run` selects which chunking strategy to evaluate, which is what makes
-comparing two strategies a matter of changing one argument.
+comparing two strategies a matter of changing one argument. `--method lexical`,
+`dense` or `hybrid` selects the retrieval method (default `lexical`, the
+original baseline). Question embeddings are cached, so repeat runs make no
+embedding calls.
 
 ## Notes for contributors
 
