@@ -154,8 +154,17 @@ class QueryLog(Base):
     
     # What we asked LiteLLM for, before any fallback could fire. NULL when no
     # model was called at all (retrieval returned nothing): a log column
-    # records what happened, not what would have happened. Fallback fired =
-    # model IS NOT NULL AND model <> model_requested.
+    # records what happened, not what would have happened.
+    #
+    # The two columns are not written in the same form: model_requested keeps
+    # LiteLLM's provider prefix ("gemini/gemini-3.6-flash"), while model is the
+    # name the provider reports back ("gemini-3.6-flash"). So a plain
+    # model <> model_requested flags EVERY answered row. Strip the prefix:
+    #   fallback fired = model IS NOT NULL
+    #     AND regexp_replace(model, '^[^/]+/', '')
+    #         <> regexp_replace(model_requested, '^[^/]+/', '')
+    # Both sides are stripped because row 3 (20 Sep) stored model WITH the
+    # prefix. Checked against query_logs on 18 Oct 2026, Gemini models only.
     model_requested: Mapped[str | None] = mapped_column(String(64))
 
     # Which deployment wrote this row: the git SHA Render built from, or
