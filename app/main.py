@@ -238,6 +238,14 @@ class AskResponse(BaseModel):
 
 NO_CONTEXT_ANSWER = "Nothing in this video's transcript matches that question."
 
+# Does this video have chunks under the run /ask searches? EXISTS stops at the
+# first match, so this is one cheap round trip, not a count.
+_HAS_CHUNKS = text("""
+    SELECT EXISTS (
+        SELECT 1 FROM chunks WHERE video_id = :video_id AND chunking_run = :run
+    )
+""")
+
 
 def _write_log(session: Session, row: QueryLog) -> None:
     """Write the request log row. Never raises.
@@ -315,6 +323,20 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)):
         except ValueError as exc:
             log.error = f"bad_video_reference: {exc}"
             raise HTTPException(status_code=400, detail=str(exc))
+
+        # A video that was never added used to reach retrieval, find nothing,
+        # and get "nothing in this video's transcript matches", which blames a
+        # transcript we never had. Worse, the log row then failed to save:
+        # query_logs.video_id is a foreign key to videos, and this video is not
+        # in videos. So check first, answer 404, and record the requested id in
+        # `error` with video_id left NULL, so the row saves.
+        if not session.execute(_HAS_CHUNKS, {"video_id": video_id, "run": run}).scalar():
+            log.error = f"video_not_ingested: {video_id}"
+            raise HTTPException(
+                status_code=404,
+                detail=f"Video {video_id} has not been added yet. "
+                       "Add it with POST /videos first.",
+            )
 
         log.video_id = video_id
 
