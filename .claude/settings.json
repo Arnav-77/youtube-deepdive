@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.production)",
+      "Edit(./.env)",
+      "Edit(./.env.production)",
+      "Bash(cat .env*)",
+      "Bash(printenv*)",
+      "Bash(env)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(alembic upgrade *)",
+      "Bash(alembic downgrade *)",
+      "Bash(python evaluation/embed_chunks.py*)",
+      "Bash(python evaluation/ingest_batch.py*)",
+      "Bash(python evaluation/write_videos.py*)",
+      "Bash(python evaluation/add_labels.py*)",
+      "Edit(./evaluation/golden_set.yaml)",
+      "Edit(./app/prompts/**)",
+      "Edit(./alembic/versions/**)"
+    ]
+  }
+}
