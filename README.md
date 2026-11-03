@@ -178,6 +178,7 @@ Built and deployed:
 - Grounded generation with code-validated citations and a backup model
 - Complete per-request logging, including which retrieval method answered
 - Retrieval evaluation harness comparing word, dense and hybrid search
+- Offline unit tests for the pure functions: chunking, timestamps, prompt rendering, citation checks, URL parsing
 - Benchmark: 23 of 25 videos chosen and ingested, 19 questions labelled
 
 In progress:
@@ -337,11 +338,29 @@ nothing and drops in-flight requests.
 | `app/generation.py` | Prompt rendering, model call with a backup, citation validation |
 | `app/prompts/` | Versioned prompt templates |
 | `alembic/` | Database migrations |
+| `tests/` | pytest suite; `conftest.py` keeps it offline |
 | `evaluation/golden_set.yaml` | Hand-written relevance labels |
 | `evaluation/run_eval.py` | Retrieval harness: Recall@k, MRR, citation offset |
 | `evaluation/explain_query.py` | How every chunk ranked for one question, and why |
 | `evaluation/embed_chunks.py` | Resumable embedding backfill for existing chunks |
 
+
+## Running the tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+The tests need no network, no database and no `.env`. `tests/conftest.py`
+disables `.env` loading, replaces `DATABASE_URL` with an unreachable address,
+makes LiteLLM use its bundled price list, and blocks every socket connection,
+so a test that tried to reach Gemini, YouTube or Postgres would fail rather
+than quietly succeed. pytest lives in `requirements-dev.txt`, not
+`requirements.txt`, so it is never installed on the server.
+
+Tests marked `xfail` describe known gaps that are not fixed yet. They are
+strict: when the gap is fixed, the test fails until the marker is removed.
 
 ## Running the evaluation
 

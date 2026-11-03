@@ -89,7 +89,7 @@ Code lives inside WSL at ~/code/deepdive, never under /mnt/c.
 - Live retrieval: dense (pgvector cosine distance, `<=>`), chunking run fixed_1000_200, top 5. No vector index; exact scan.
 - 23 videos ingested, 1,574 chunks embedded. 19 labelled questions on 5 videos (14 reported on 4 videos, 5 dev on 1).
 - Reported set, dense: Recall@5 14/14, MRR 0.917, median citation offset 15 s, late citations 5/14.
-- Known gaps: a refusal is logged as status "answered"; model names are not validated at startup; no tests; the live server cannot add videos; grounding is not measured.
+- Known gaps: a refusal is logged as status "answered"; model names are not validated at startup; tests cover only the pure functions (3 Nov), with two known gaps as strict xfail: invalid_citations misses "[1, 9]", extract_video_id truncates a 12-character id inside a URL; the live server cannot add videos; grounding is not measured.
 
 ## Build order to 23 Nov
 
