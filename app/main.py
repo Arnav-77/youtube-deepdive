@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 import time
 
 from app.chunking import DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP, chunking_run_label
-from app.generation import PROMPT_VERSION, generate
+from app.generation import PROMPT_VERSION, cited_numbers, generate
 from app.embeddings import EmbeddingError, embed_missing_chunks
 from app.models import QueryLog
 from app.retrieval import (
@@ -384,6 +384,7 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)):
         # Resolve the model's [n] citations against the chunks we actually
         # sent. by_rank is keyed on rank, which is the number the model saw.
         by_rank = {h.rank: h for h in hits}
+        cited = cited_numbers(result.answer)
         citations = [
             Citation(
                 number=h.rank,
@@ -397,7 +398,7 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)):
                 url=f"https://youtu.be/{video_id}?t={int(h.start_seconds)}",
             )
             for n, h in by_rank.items()
-            if f"[{n}]" in result.answer
+            if n in cited
         ]
 
         # Citations the model invented. Already validated in generate(); we

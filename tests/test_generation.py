@@ -82,6 +82,5 @@ def test_invalid_citations(answer, n_excerpts, expected):
     assert invalid_citations(answer, n_excerpts) == expected
 
 
-@pytest.mark.xfail(strict=True, reason="known gap: the regex only matches [n], so [1, 9] skips the bounds check")
 def test_invalid_citations_catches_comma_lists():
     assert invalid_citations("Yes [1, 9].", 5) == [9]

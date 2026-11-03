@@ -118,7 +118,18 @@ def render_prompt(question: str, context: str) -> str:
     )
 
 
-_CITATION = re.compile(r"\[(\d+)\]")
+# One bracket holding one number or a comma list: [1], [2][3], [1, 9].
+_CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+
+
+def cited_numbers(answer: str) -> set[int]:
+    """Every excerpt number the answer cites, including inside [1, 9].
+
+    The one parser for citations. invalid_citations and main.py's link
+    building both use it, so a number the bounds check sees is a number the
+    links see, and the reverse.
+    """
+    return {int(n) for group in _CITATION.findall(answer) for n in group.split(",")}
 
 
 def invalid_citations(answer: str, n_excerpts: int) -> list[int]:
@@ -129,8 +140,7 @@ def invalid_citations(answer: str, n_excerpts: int) -> list[int]:
     the model to cite excerpt 9 fails a bounds check here instead of
     reaching the user as a broken link.
     """
-    cited = {int(n) for n in _CITATION.findall(answer)}
-    return sorted(c for c in cited if c < 1 or c > n_excerpts)
+    return sorted(c for c in cited_numbers(answer) if c < 1 or c > n_excerpts)
 
 
 def generate(question: str, results: list[Retrieved]) -> Generated:
