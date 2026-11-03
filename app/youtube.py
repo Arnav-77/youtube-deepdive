@@ -18,18 +18,22 @@ from app.models import Video
 # shape rather than trying to validate meaning.
 _VIDEO_ID = r"([0-9A-Za-z_-]{11})"
 
+# Inside a URL the id must also END after 11 characters: without this, a
+# 12-character typo matched its first 11 and returned a wrong id silently.
+_URL_ID = _VIDEO_ID + r"(?![0-9A-Za-z_-])"
+
 # Users paste whichever URL form they happened to copy, so all three are
 # handled. Order matters only in that each pattern is anchored enough not
 # to match the others by accident.
 _URL_PATTERNS = [
     # https://www.youtube.com/watch?v=LXaFHI_2Hus&t=42
-    re.compile(r"[?&]v=" + _VIDEO_ID),
+    re.compile(r"[?&]v=" + _URL_ID),
     # https://youtu.be/LXaFHI_2Hus?si=...   (the share-button form)
-    re.compile(r"youtu\.be/" + _VIDEO_ID),
+    re.compile(r"youtu\.be/" + _URL_ID),
     # https://www.youtube.com/embed/LXaFHI_2Hus
-    re.compile(r"/embed/" + _VIDEO_ID),
+    re.compile(r"/embed/" + _URL_ID),
     # https://www.youtube.com/shorts/LXaFHI_2Hus
-    re.compile(r"/shorts/" + _VIDEO_ID),
+    re.compile(r"/shorts/" + _URL_ID),
 ]
 
 # A bare id pasted on its own, e.g. "LXaFHI_2Hus". Anchored at both ends so

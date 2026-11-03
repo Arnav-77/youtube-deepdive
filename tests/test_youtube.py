@@ -41,7 +41,6 @@ def test_rejects_bad_links_with_value_error(pasted):
         extract_video_id(pasted)
 
 
-@pytest.mark.xfail(strict=True, reason="known gap: URL patterns have no end anchor, so a 12-character id is truncated")
 @pytest.mark.parametrize(
     "pasted",
     [f"https://youtu.be/{ID}x", f"https://www.youtube.com/watch?v={ID}x"],
