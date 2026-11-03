@@ -9,3 +9,6 @@ __pycache__
 .pytest_cache
 .vscode
 README.md
+tests
+pytest.ini
+requirements-dev.txt

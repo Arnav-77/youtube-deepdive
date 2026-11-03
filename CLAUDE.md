@@ -35,8 +35,9 @@ Code lives inside WSL at ~/code/deepdive, never under /mnt/c.
 - Run locally: `python run.py`, then http://localhost:8000/docs
 - Retrieval eval: `python evaluation/run_eval.py --method dense --set reported` and `--set dev`. ALWAYS pass both flags: the defaults are lexical and dev, which print the wrong numbers.
 - Log numbers: `python evaluation/log_stats.py`
-- After adding a dependency: `pip freeze > requirements.txt`
-- There is no test suite yet. When one exists: `pytest`
+- After adding a server dependency: `pip freeze > requirements.txt`, then delete the dev-only lines (pytest, iniconfig, pluggy, Pygments). Dev-only packages are pinned by hand in requirements-dev.txt and must never reach requirements.txt.
+- Laptop setup: `pip install -r requirements-dev.txt`
+- Tests: `pytest` (offline: tests/conftest.py disables .env, swaps in a dummy DATABASE_URL and blocks sockets)
 
 ## Secrets, data and quotas: read before running anything
 
