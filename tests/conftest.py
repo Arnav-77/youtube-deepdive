@@ -20,9 +20,13 @@ import socket
 os.environ["PYTHON_DOTENV_DISABLED"] = "1"
 
 # 2. Overwritten, not setdefault: if the shell exports the real URL, the tests
-#    still never see it. Port 9 on localhost, and the socket guard below means
-#    nothing could connect to it anyway. create_engine does not connect until a
-#    query runs, so this only satisfies db.py's startup check.
+#    still never see it. THIS line is what protects the database, not the
+#    socket guard below: psycopg connects through libpq, which opens its own
+#    socket in C and never calls Python's socket module (checked 3 Nov: a
+#    connect with the guard installed got "Connection refused" from the OS, not
+#    the guard's RuntimeError). Nothing listens on port 9 of localhost, so any
+#    query fails. create_engine does not connect until a query runs, so on
+#    import this only satisfies db.py's startup check.
 os.environ["DATABASE_URL"] = "postgresql+psycopg://nobody@127.0.0.1:9/never"
 
 # 3. LiteLLM uses its bundled price list instead of fetching one.
@@ -32,8 +36,10 @@ os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
 os.environ.pop("GEMINI_API_KEY", None)
 
 
-# 5. The proof behind "no network": any attempt to open a connection, from an
-#    import or a test, fails loudly instead of quietly working.
+# 5. The proof behind "no network" for Python-level HTTP: httpx (embeddings),
+#    LiteLLM and youtube_transcript_api (requests) all connect through Python's
+#    socket module, so any call to Gemini, GitHub or YouTube fails loudly
+#    instead of quietly working. It does NOT cover psycopg (see 2).
 def _no_network(*args, **kwargs):
     raise RuntimeError("network disabled in tests")
 

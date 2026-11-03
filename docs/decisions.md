@@ -2,7 +2,7 @@
 
 ## 3 Nov 2026: tests isolate configuration in conftest.py, not by changing app code
 
-**Decision.** The test suite runs with no network, no database and no .env. tests/conftest.py, before any app module is imported, disables python-dotenv (PYTHON_DOTENV_DISABLED), overwrites DATABASE_URL with an unreachable local address, tells LiteLLM to use its bundled price list (LITELLM_LOCAL_MODEL_COST_MAP), removes GEMINI_API_KEY, and replaces socket connect so any network attempt raises.
+**Decision.** The test suite runs with no network, no database and no .env. tests/conftest.py, before any app module is imported, disables python-dotenv (PYTHON_DOTENV_DISABLED), overwrites DATABASE_URL with an unreachable local address, tells LiteLLM to use its bundled price list (LITELLM_LOCAL_MODEL_COST_MAP), removes GEMINI_API_KEY, and replaces Python's socket connect so any HTTP call (Gemini, GitHub, YouTube) raises. The socket guard does not stop the database driver: psycopg connects through libpq in C, bypassing Python's socket module (verified 3 Nov). The overwritten DATABASE_URL is the database protection.
 
 **Why it was needed.** Every module under test imports app/db.py, directly or through app.models or app.embeddings. db.py reads .env and raises at import if DATABASE_URL is unset. Importing litellm downloads a price list from GitHub.
 

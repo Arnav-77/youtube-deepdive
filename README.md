@@ -354,9 +354,11 @@ pytest
 
 The tests need no network, no database and no `.env`. `tests/conftest.py`
 disables `.env` loading, replaces `DATABASE_URL` with an unreachable address,
-makes LiteLLM use its bundled price list, and blocks every socket connection,
-so a test that tried to reach Gemini, YouTube or Postgres would fail rather
-than quietly succeed. pytest lives in `requirements-dev.txt`, not
+makes LiteLLM use its bundled price list, and blocks Python socket
+connections, so a test that tried to reach Gemini or YouTube would fail rather
+than quietly succeed. The socket block does not cover the database driver,
+which connects from C code; the unreachable `DATABASE_URL` is what keeps tests
+away from Postgres. pytest lives in `requirements-dev.txt`, not
 `requirements.txt`, so it is never installed on the server.
 
 Tests marked `xfail` describe known gaps that are not fixed yet. They are
