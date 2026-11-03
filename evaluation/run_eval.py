@@ -48,9 +48,11 @@ METHODS = {"lexical": search, "dense": dense_search, "hybrid": hybrid_search}
 
 
 def overlaps(chunk_start, chunk_end, spans):
-    """True when the chunk's time range touches any gold span.
+    """True when the chunk's time range shares some time with any gold span.
 
-    Two ranges overlap when each starts before the other ends. Written this
+    Two ranges overlap when each starts before the other ends. Strictly
+    before: a chunk ending at exactly the second a span starts only touches
+    it, contains none of the answer, and does not count. Written this
     way rather than by enumerating cases because the four-case version is
     where off-by-one bugs live.
     """
