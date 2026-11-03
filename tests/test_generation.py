@@ -2,7 +2,13 @@
 
 import pytest
 
-from app.generation import _TEMPLATE, build_context, invalid_citations, render_prompt
+from app.generation import (
+    _TEMPLATE,
+    build_context,
+    cited_numbers,
+    invalid_citations,
+    render_prompt,
+)
 from app.retrieval import Retrieved
 
 
@@ -62,6 +68,24 @@ def test_question_containing_context_marker_changes_nothing_else():
 
     assert prompt.count(context) == 1
     assert prompt.replace(hostile, "<Q>") == render_prompt("<Q>", context)
+
+
+# --- cited_numbers ----------------------------------------------------------
+# The one parser shared by invalid_citations and main.py's link building.
+
+@pytest.mark.parametrize(
+    "answer, expected",
+    [
+        ("Yes [1].", {1}),
+        ("Yes [2][3].", {2, 3}),
+        ("Yes [1, 9].", {1, 9}),
+        ("Yes [1,9].", {1, 9}),
+        ("Yes [1-3].", set()),          # ranges are not a citation form
+        ("No brackets at all.", set()),
+    ],
+)
+def test_cited_numbers(answer, expected):
+    assert cited_numbers(answer) == expected
 
 
 # --- invalid_citations ------------------------------------------------------
