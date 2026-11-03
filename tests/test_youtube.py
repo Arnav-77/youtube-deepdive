@@ -19,6 +19,8 @@ ID = "LXaFHI_2Hus"
         f"https://youtu.be/{ID}?si=abc123",
         f"https://www.youtube.com/embed/{ID}",
         f"https://www.youtube.com/shorts/{ID}",
+        f"https://youtu.be/{ID}#t=51",            # any non-id character may follow
+        f"https://www.youtube.com/watch?v={ID}#t=51",
     ],
 )
 def test_accepts_every_form_users_paste(pasted):
