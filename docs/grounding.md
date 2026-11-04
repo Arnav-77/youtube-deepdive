@@ -10,6 +10,7 @@ An answer is split into segments at citation runs.
 - A segment is the text from the end of the previous run (or the start of the answer) up to and including the next run.
 - Text after the last run is one uncited segment.
 - Whitespace-only segments are dropped.
+- **A citation at the start of the answer** ("[1] The climber said X.") is not a segment on its own. It is held and attached to the claim after it, so the claim is cited 1. The segment's `leads_with_citation` flag is true, and the scorer reports how many scored segments used this rule. The rule is option A, chosen 4 Nov: the model writes its citation before the claim, and counting that claim as uncited would blame the model for layout.
 
 Segments, not sentences, are the unit because a sentence can join two facts with one citation, and the segment is the smallest text the citation can be checked against.
 
@@ -52,7 +53,7 @@ Scoring rules:
 - **Stops, with every problem listed, when a block cannot be trusted:** the saved answer file is missing; the segments no longer match the saved text (a stale label); a label is not one of the three values; `refused` is not true or false.
 - **Reports and leaves out, never a failure:** a block that is not yet labelled (`refused` blank, or an answered block with a blank label). Its answer is listed under "not yet labelled" and counted in no rate.
 - **Reports, not a failure:** a citation to an excerpt the model was never sent. The segment still gets its hand label, normally `unsupported`.
-- **Not judged:** a saved answer whose question is not in `golden_set.yaml`. It is listed, and it has no refusal result.
+- **Examples, left out of every number:** a saved answer whose question is not in `golden_set.yaml`. It is listed under "examples", and it counts in no rate, no refusal result and no segment count.
 
 ## Numbers the scorer reports
 
@@ -69,7 +70,7 @@ Every number is printed with its sample size, overall and per `model`.
 
 **sklearn** (prWyZhcktn4, spans 880-900). The video mentions sklearn for 20 seconds and does not explain it. A sentence restating that the speaker mentions sklearn, with its citation, is **supported**. A sentence saying what sklearn is, from the model's own knowledge, is **unsupported**, even if true. A mixed answer gives **partly supported** segments.
 
-**Everest, "This is because"** (LXaFHI_2Hus, spans 51-128). An answer might read: "The climber was asked what he remembered [1]. This is because ... [2]." The second segment is judged only against excerpt 2. If excerpt 2 states the second fact but not the link, the segment is **partly supported**. If the link is stated only in excerpt 1, the segment is still partly or unsupported, with the note `support found in [1]`.
+**Everest, "This is because"** (LXaFHI_2Hus, spans 51-128). The example answer is `evaluation/answers/row26.json` (local, gitignored), with its block in `grounding_labels.yaml`. Its question is not in the golden set, so the scorer lists it as an example and leaves it out of every number. It exists to show the rule, not to be counted. The scored Everest answer is row 24, whose question is the golden one. An answer might read: "The climber was asked what he remembered [1]. This is because ... [2]." The second segment is judged only against excerpt 2. If excerpt 2 states the second fact but not the link, the segment is **partly supported**. If the link is stated only in excerpt 1, the segment is still partly or unsupported, with the note `support found in [1]`.
 
 ## Known limits
 

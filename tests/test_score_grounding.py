@@ -19,7 +19,7 @@ GOLDEN = {"videos": [{"video_id": "V", "questions": [
 ]}]}
 
 
-def answer(text, question="Free question?", model="gemini/a"):
+def answer(text, question="Answer near the start?", model="gemini/a"):
     return {"row_id": 1, "video_id": "V", "question": question, "answer": text,
             "model": model, "chunk_ids": [1, 2], "excerpts": EXCERPTS}
 
@@ -173,7 +173,8 @@ def test_refusal_table_judges_each_case_by_its_gold_span(tmp_path):
 def test_answer_to_a_question_not_in_golden_set_is_not_judged(tmp_path):
     files = {"a.json": answer("Claim [1].", question="Something unlabelled?")}
     result = run(tmp_path, files, [block("a.json", files["a.json"], True)])
-    assert result.rows[0].gold is None
+    assert result.rows == []
+    assert result.examples == ["a.json"]
     assert refusal_table(result.rows)["judged"] == 0
 
 
@@ -260,3 +261,32 @@ def test_report_prints_every_number_with_its_sample_size(tmp_path):
     assert "grounding rate, segments: 50% (1/2)" in text
     assert "model a" in text and "model b" in text
     assert "saved answers not yet labelled: 0" in text
+
+
+def test_leading_citation_segments_are_counted_in_the_report(tmp_path):
+    from evaluation.score_grounding import format_report
+    files = {"a.json": answer("[1] The climber said X. [2] Second claim.")}
+    result = run(tmp_path, files, [block("a.json", files["a.json"], False, ["supported", "supported"])])
+    assert result.leading_segments == 1
+    assert "carried to the claim after it: 1 of 2 answered segments" in format_report(result, GOLDEN)
+
+
+def test_answer_not_in_golden_set_is_an_example_left_out_of_every_number(tmp_path):
+    from evaluation.score_grounding import format_report
+    files = {
+        "gold.json": answer("Claim [1].", question="Free question?"),
+        "example.json": answer("Other [1].", question="Something unlabelled?"),
+    }
+    golden = {"videos": [{"video_id": "V", "questions": [
+        {"q": "Free question?", "spans": [[20, 35]]}]}]}
+    result = run(tmp_path, files, [
+        block("gold.json", files["gold.json"], False, ["supported"]),
+        block("example.json", files["example.json"], False, ["unsupported"]),
+    ], golden=golden)
+    assert [r.file for r in result.rows] == ["gold.json"]
+    assert result.examples == ["example.json"]
+    assert summarise(result.rows)["segments"] == 1
+    assert refusal_table(result.rows)["judged"] == 1
+    text = format_report(result, golden)
+    assert "grounding rate, segments: 100% (1/1)" in text
+    assert "left out of every number: 1" in text and "    example.json" in text

@@ -1,5 +1,18 @@
 # Design decisions
 
+## 4 Nov 2026: a citation at the start of an answer belongs to the claim after it, and non-golden answers are examples
+
+**Decision.** A citation run at the very start of an answer ("[1] The climber said X.") is held and attached to the next claim, so the claim is one segment cited 1. The segment is flagged `leads_with_citation`, and the scorer reports how many scored segments used the rule. A saved answer whose question is not in the golden set is listed as an example and left out of every rate, refusal result and segment count.
+
+**Why.** Before this, the bare "[1]" became its own segment, and the claim after it counted as uncited. That penalised the model for where it put a bracket. Counting the example would also mix a question nobody chose to measure into the numbers.
+
+**Alternatives considered.**
+- Keep the bare "[1]" as its own segment. Rejected: it counts a claim as uncited because of layout.
+- Treat a leading citation as a formatting error reported on its own. Rejected for now: it would hide a real case of citing before the claim, and the report count gives the same visibility.
+- Flag examples with a label field in the labels file. Rejected: the golden set already decides what is judged, so a second switch could disagree with it.
+
+**Also decided.** The count is shown per answer set, so a rule that fires often is visible. row26.json is kept as the worked "This is because" example and is not a scored answer.
+
 ## 4 Nov 2026: the scorer groups models by name without the provider prefix
 
 **Decision.** `score_grounding.model_name` removes the text before the first `/` from a saved answer's model name. "gemini/gemini-3.6-flash" and "gemini-3.6-flash" are one model, so their rows and their per-model section are one.

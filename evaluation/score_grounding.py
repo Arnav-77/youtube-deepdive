@@ -75,6 +75,8 @@ class Collected:
     errors: list = field(default_factory=list)
     unlabelled: list = field(default_factory=list)
     saved: dict = field(default_factory=dict)    # file name -> saved answer
+    examples: list = field(default_factory=list)  # labelled, question not in golden set
+    leading_segments: int = 0                    # scored segments that opened with a citation
 
 
 def golden_lookup(golden: dict) -> dict:
@@ -150,9 +152,17 @@ def collect(labels: dict, golden: dict, answers_dir: Path) -> Collected:
             result.unlabelled.append(name)
             continue
 
-        excerpts = excerpts_by_rank(answer)
-        cited = [n for seg in citation_segments(answer["answer"]) for n in seg.cited]
         question = norm(answer["question"])
+        if question not in gold:
+            # Not in the golden set: an example, shown but kept out of every number.
+            result.examples.append(name)
+            continue
+
+        segs = citation_segments(answer["answer"])
+        excerpts = excerpts_by_rank(answer)
+        cited = [n for seg in segs for n in seg.cited]
+        if not refused:
+            result.leading_segments += sum(seg.leads_with_citation for seg in segs)
         result.rows.append(Row(
             file=name,
             question=answer["question"],
@@ -161,7 +171,7 @@ def collect(labels: dict, golden: dict, answers_dir: Path) -> Collected:
             labels=[] if refused else [s.get("label") for s in segments],
             notes=[] if refused else [s.get("note") or "" for s in segments],
             invalid_citations=sum(1 for n in cited if n not in excerpts),
-            gold=gold.get(question),
+            gold=gold[question],
             retrieved=[(float(e["start_seconds"]), float(e["end_seconds"]))
                        for e in answer["excerpts"]],
         ))
@@ -258,9 +268,12 @@ def format_report(collected: Collected, golden: dict) -> str:
     lines.append(f"  saved answers not yet labelled: {len(collected.unlabelled)}")
     for name in collected.unlabelled:
         lines.append(f"    {name}")
-    unmatched = [r.file for r in rows if r.gold is None]
-    lines.append(f"  scored answers whose question is not in golden_set.yaml: {len(unmatched)}")
-    for name in unmatched:
+    answered_segments = summarise(rows)["segments"]
+    lines.append(f"  segments that opened with a citation, carried to the claim after it: "
+                 f"{collected.leading_segments} of {answered_segments} answered segments")
+    lines.append(f"  examples, question not in golden_set.yaml, left out of every number: "
+                 f"{len(collected.examples)}")
+    for name in collected.examples:
         lines.append(f"    {name}")
     return "\n".join(lines)
 

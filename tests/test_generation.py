@@ -169,3 +169,44 @@ def test_offsets_point_at_the_stripped_text_in_the_answer():
 
 def test_empty_answer_has_no_segments():
     assert citation_segments("") == []
+
+
+# --- a citation at the start of the answer (docs/grounding.md, 4 Nov) --------
+
+def test_leading_citation_is_carried_to_the_claim_after_it():
+    segments = citation_segments("[1] The climber said X.")
+    assert len(segments) == 1
+    assert segments[0].text == "[1] The climber said X."
+    assert segments[0].cited == (1,)
+    assert segments[0].leads_with_citation is True
+
+
+def test_leading_citation_is_not_counted_as_an_uncited_claim():
+    segments = citation_segments("[1] The climber said X. [2] Next thing.")
+    assert [s.cited for s in segments] == [(1, 2), ()]
+    assert [s.leads_with_citation for s in segments] == [True, False]
+
+
+def test_leading_run_with_a_full_stop_still_joins_the_claim():
+    segments = citation_segments("[1]. [2] Claim.")
+    assert len(segments) == 1
+    assert segments[0].cited == (1, 2)
+    assert segments[0].leads_with_citation is True
+
+
+def test_a_bracket_after_a_claim_is_not_a_leading_citation():
+    segments = citation_segments("Claim [1]. [2] Second claim.")
+    assert [s.cited for s in segments] == [(1, 2), ()]
+    assert [s.leads_with_citation for s in segments] == [False, False]
+
+
+def test_answer_that_is_only_citations_is_kept_as_a_segment():
+    segments = citation_segments("[1]")
+    assert len(segments) == 1
+    assert segments[0].text == "[1]" and segments[0].cited == (1,)
+
+
+def test_leading_segment_offsets_point_at_its_text():
+    answer = "  [1] The climber said X.  "
+    (segment,) = citation_segments(answer)
+    assert answer[segment.start:segment.end] == segment.text
