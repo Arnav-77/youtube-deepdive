@@ -1,5 +1,19 @@
 # Design decisions
 
+## 4 Nov 2026: grounding is measured per citation segment, refusal is a hand label scored by gold spans
+
+**Decision.** An answer is split into segments at citation runs, using the existing `cited_numbers` parser. Each segment is labelled supported, partly supported or unsupported, judged only against the excerpts its own run cites. The grounding rate is reported next to an answer-level rate (every segment supported). Refusal is a hand label per answer. Its correctness is decided by the gold spans: a refusal is correct only when the gold spans are empty, and a refusal on a non-empty span is a false refusal with a retrieval or generation cause. Refusal accuracy is never combined with the grounding rate. Rules are in docs/grounding.md.
+
+**Why.** Sentences can join two facts under one citation ("This is because"), and a segment is the smallest text the citation can be checked against. A hand refusal label avoids inferring refusal from missing citations, which is the known gap. Gold spans, not retrieval, decide correctness, so a retrieval miss cannot count as a correct refusal.
+
+**Alternatives considered.**
+- Sentence-level, two labels. Rejected: one unsupported clause fails the whole sentence, so the sklearn partial answer and the Everest link cannot be told apart.
+- Refusal inferred from "no citations" or from an empty retrieval. Rejected: that is the known gap, and an empty retrieval is a retrieval failure, not a decision the model made.
+- Refusal judged only by whether a retrieved chunk overlaps a gold span. Rejected: "how to be consistent" retrieves nothing and would count as a correct refusal, though the answer is in the video.
+- Grounding and refusal as one combined score. Rejected: a refusal scores well on grounding trivially, which hides the failure.
+
+**Also decided.** Labels live in evaluation/grounding_labels.yaml and hold no transcript text. Saved answers, which do hold excerpt text, are gitignored. Labels are never filled by a script; the helper only prints and writes a skeleton.
+
 ## 3 Nov 2026: tests isolate configuration in conftest.py, not by changing app code
 
 **Decision.** The test suite runs with no network, no database and no .env. tests/conftest.py, before any app module is imported, disables python-dotenv (PYTHON_DOTENV_DISABLED), overwrites DATABASE_URL with an unreachable local address, tells LiteLLM to use its bundled price list (LITELLM_LOCAL_MODEL_COST_MAP), removes GEMINI_API_KEY, and replaces Python's socket connect so any HTTP call (Gemini, GitHub, YouTube) raises. The socket guard does not stop the database driver: psycopg connects through libpq in C, bypassing Python's socket module (verified 3 Nov). The overwritten DATABASE_URL is the database protection.
