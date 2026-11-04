@@ -10,3 +10,42 @@
 # the exact text it labels; score_grounding.py refuses a label whose hash no
 # longer matches.
 answers:
+  - answer_file: "row24.json"
+    question: "What did the speaker learn from the person who climbed Everest?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "b60f4e6fe70d"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1]
+        hash: "656ae9dd7c19"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 2
+        cited: [1]
+        hash: "785f03825dfa"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  # EXAMPLE, not in golden_set.yaml: the worked "This is because" case in
+  # docs/grounding.md. The scorer lists it as an example and leaves it out of every number.
+  - answer_file: "row26.json"
+    question: "why should you not look up when climbing a mountain"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "4954d28fbde5"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1]
+        hash: "1abeda7cd95f"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
