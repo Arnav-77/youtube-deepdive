@@ -19,7 +19,8 @@ from pathlib import Path
 
 import yaml
 
-from app.chunking import _snippet_end
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 
 GOLDEN_PATH = Path(__file__).resolve().parent / "golden_set.yaml"
 LONG_WINDOW_S = 600
@@ -49,6 +50,10 @@ def format_lines(snippets: list[dict], start: float | None = None, end: float | 
     last), the same rule chunking uses. A caption is shown if its time range
     overlaps [start, end); with no window, every caption is shown.
     """
+    # Imported here, not at the top: app.chunking imports the database layer,
+    # and the golden-set refusal must work with no database configured.
+    from app.chunking import _snippet_end
+
     lines = []
     for i, snippet in enumerate(snippets):
         caption_start = float(snippet["start"])

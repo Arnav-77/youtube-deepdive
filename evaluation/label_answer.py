@@ -17,6 +17,8 @@ from pathlib import Path
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from app.citations import citation_segments
 from evaluation.answer_files import LABELS_PATH, excerpts_by_rank, load_answer, segment_hash
 
