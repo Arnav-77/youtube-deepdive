@@ -6,3 +6,5 @@ __pycache__/
 .env.*
 !.env.example
 .pytest_cache/
+# Saved answers hold excerpt text from the transcripts; not committed.
+evaluation/answers/
