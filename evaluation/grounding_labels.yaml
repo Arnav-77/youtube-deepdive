@@ -1,0 +1,12 @@
+# Grounding labels: one block per saved answer (see docs/grounding.md).
+#
+# Written by evaluation/label_answer.py, which adds the block with the label
+# fields BLANK. A person fills them in by hand:
+#   refused   true | false     did the app decline to answer?
+#   label     supported | partly | unsupported    one per segment, unless refused
+#
+# No transcript text here: the repo is public, and the excerpts live in the
+# gitignored evaluation/answers/ folder. Each segment's hash ties its label to
+# the exact text it labels; score_grounding.py refuses a label whose hash no
+# longer matches.
+answers:
