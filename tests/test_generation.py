@@ -5,6 +5,7 @@ import pytest
 from app.generation import (
     _TEMPLATE,
     build_context,
+    citation_segments,
     cited_numbers,
     invalid_citations,
     render_prompt,
@@ -108,3 +109,64 @@ def test_invalid_citations(answer, n_excerpts, expected):
 
 def test_invalid_citations_catches_comma_lists():
     assert invalid_citations("Yes [1, 9].", 5) == [9]
+
+
+# --- citation_segments ------------------------------------------------------
+
+def test_segments_end_at_each_citation_run():
+    segments = citation_segments("First claim [1]. Second claim [2].")
+    assert [s.text for s in segments] == ["First claim [1].", "Second claim [2]."]
+    assert [s.cited for s in segments] == [(1,), (2,)]
+
+
+def test_adjacent_and_spaced_markers_are_one_run():
+    # "[1][2]", "[1] [2]" and a line break between markers all cite together.
+    for answer in ["Fact [1][2].", "Fact [1] [2].", "Fact [1]\n[2]."]:
+        segments = citation_segments(answer)
+        assert len(segments) == 1, answer
+        assert segments[0].cited == (1, 2), answer
+
+
+def test_bracket_only_fragment_after_a_full_stop_joins_the_claim_before():
+    # "[2]" has no words of its own: it is a second citation for claim one.
+    segments = citation_segments("Claim one [1]. [2]")
+    assert len(segments) == 1
+    assert segments[0].cited == (1, 2)
+    assert segments[0].text == "Claim one [1]. [2]"
+
+
+def test_comma_after_a_citation_stays_with_its_claim():
+    segments = citation_segments("Claim [1], and more [2].")
+    assert [s.text for s in segments] == ["Claim [1],", "and more [2]."]
+
+
+def test_comma_list_is_one_run_with_both_numbers():
+    segments = citation_segments("Fact [1, 9].")
+    assert segments[0].cited == (1, 9)
+
+
+def test_text_before_first_run_is_its_own_segment_only_if_uncited():
+    segments = citation_segments("Opening words with no marker")
+    assert len(segments) == 1
+    assert segments[0].cited == ()
+
+
+def test_trailing_uncited_text_is_a_final_segment():
+    segments = citation_segments("Cited [1]. And this part is not.")
+    assert [s.cited for s in segments] == [(1,), ()]
+    assert segments[1].text == "And this part is not."
+
+
+def test_whitespace_only_pieces_are_dropped():
+    segments = citation_segments("Claim [1].\n\n")
+    assert len(segments) == 1
+
+
+def test_offsets_point_at_the_stripped_text_in_the_answer():
+    answer = "  Claim [1]  Next [2]\n"
+    for segment in citation_segments(answer):
+        assert answer[segment.start:segment.end] == segment.text
+
+
+def test_empty_answer_has_no_segments():
+    assert citation_segments("") == []
