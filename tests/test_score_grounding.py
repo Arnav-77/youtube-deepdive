@@ -4,7 +4,7 @@ import json
 
 from app.citations import citation_segments
 from evaluation.answer_files import segment_hash
-from evaluation.score_grounding import collect, refusal_table, summarise
+from evaluation.score_grounding import collect, model_name, refusal_table, summarise
 
 # Excerpt 1 covers 10-40 s, excerpt 2 covers 100-130 s.
 EXCERPTS = [
@@ -106,10 +106,35 @@ def test_grouping_by_model_keeps_each_model_separate(tmp_path):
         block("a.json", files["a.json"], False, ["supported"]),
         block("b.json", files["b.json"], False, ["unsupported"]),
     ])
-    a = summarise([r for r in result.rows if r.model == "gemini/a"])
-    b = summarise([r for r in result.rows if r.model == "gemini/b"])
+    a = summarise([r for r in result.rows if r.model == "a"])
+    b = summarise([r for r in result.rows if r.model == "b"])
     assert (a["supported"], a["segments"]) == (1, 1)
     assert (b["supported"], b["segments"]) == (0, 1)
+
+
+def test_provider_prefix_and_bare_model_name_count_as_one_model(tmp_path):
+    # Request logged with the prefix, response reported without it.
+    files = {
+        "req.json": answer("A [1].", model="gemini/gemini-3.6-flash"),
+        "resp.json": answer("B [1].", model="gemini-3.6-flash"),
+    }
+    result = run(tmp_path, files, [
+        block("req.json", files["req.json"], False, ["supported"]),
+        block("resp.json", files["resp.json"], False, ["unsupported"]),
+    ])
+    assert {r.model for r in result.rows} == {"gemini-3.6-flash"}
+    both = summarise(result.rows)
+    assert (both["supported"], both["segments"]) == (1, 2)
+    from evaluation.score_grounding import format_report
+    text = format_report(result, GOLDEN)
+    assert "model gemini-3.6-flash" in text
+    assert "model gemini/" not in text
+
+
+def test_model_name_strips_only_the_first_provider_prefix():
+    assert model_name("gemini/gemini-3.6-flash") == "gemini-3.6-flash"
+    assert model_name("gemini-3.6-flash") == "gemini-3.6-flash"
+    assert model_name("openrouter/google/gemma") == "google/gemma"
 
 
 # --- refusal ----------------------------------------------------------------
@@ -233,5 +258,5 @@ def test_report_prints_every_number_with_its_sample_size(tmp_path):
     ])
     text = format_report(result, GOLDEN)
     assert "grounding rate, segments: 50% (1/2)" in text
-    assert "model gemini/a" in text and "model gemini/b" in text
+    assert "model a" in text and "model b" in text
     assert "saved answers not yet labelled: 0" in text

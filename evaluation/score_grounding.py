@@ -40,6 +40,15 @@ LABEL_VALUES = ("supported", "partly", "unsupported")
 LINK_NOTE = "support found in"
 
 
+def model_name(name: str) -> str:
+    """Drop the LiteLLM provider prefix, so one model has one name.
+
+    The request is logged as "gemini/gemini-3.6-flash", but the response
+    reports "gemini-3.6-flash". Both are the same model, so both group together.
+    """
+    return name.partition("/")[2] or name
+
+
 def norm(question: str) -> str:
     """Compare questions the way a person would: case and spacing ignored."""
     return " ".join(str(question).split()).lower()
@@ -147,7 +156,7 @@ def collect(labels: dict, golden: dict, answers_dir: Path) -> Collected:
         result.rows.append(Row(
             file=name,
             question=answer["question"],
-            model=answer.get("model") or "unknown",
+            model=model_name(answer.get("model") or "unknown"),
             refused=bool(refused),
             labels=[] if refused else [s.get("label") for s in segments],
             notes=[] if refused else [s.get("note") or "" for s in segments],

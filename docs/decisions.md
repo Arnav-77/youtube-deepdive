@@ -1,5 +1,17 @@
 # Design decisions
 
+## 4 Nov 2026: the scorer groups models by name without the provider prefix
+
+**Decision.** `score_grounding.model_name` removes the text before the first `/` from a saved answer's model name. "gemini/gemini-3.6-flash" and "gemini-3.6-flash" are one model, so their rows and their per-model section are one.
+
+**Why.** The request is logged with the provider prefix, but LiteLLM's response reports the bare name. Grouping on the raw string would split one model into two sections and halve each sample size without saying so.
+
+**Alternatives considered.**
+- Group on `model_requested` instead. Rejected: a fallback would then be counted under the model that failed, and the fallback must stay visible (design rule 8).
+- Strip everything before the last `/`. Rejected: "openrouter/google/gemma" would become "gemma", merging it with any other gemma.
+
+**Also decided.** Only the scorer's grouping changes. Stored answers and query_logs keep the raw names.
+
 ## 4 Nov 2026: the scorer stops on untrustworthy labels, reports unlabelled and unsent citations, and the parsers are pure
 
 **Decision.** The scorer stops, printing every problem and no numbers, when a label block cannot be trusted: a missing answer file, a stale hash, a label outside the three values, or a refused value that is not true or false. Blocks that are not yet labelled are listed and left out of every number. A citation to an excerpt the model was never sent is counted and reported, not treated as a scorer error, because it is a real model failure that the hand label already judges. The citation parser and the segmenter live in app/citations.py, and the relevance rule in evaluation/relevance.py. Both are pure, so the helpers and the scorer run with no DATABASE_URL.
