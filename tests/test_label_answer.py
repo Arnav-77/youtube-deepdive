@@ -75,6 +75,11 @@ def test_skeleton_leaves_every_label_and_refusal_blank():
     assert all(s["label"] is None for s in entry["segments"])
 
 
+def test_skeleton_has_a_blank_note_for_each_segment():
+    entry = yaml.safe_load(skeleton_block("row26.json", saved("First [1]. Second [2].")))[0]
+    assert all(s["note"] is None for s in entry["segments"])
+
+
 def test_skeleton_writes_no_label_value_anywhere():
     # The comment on the label line lists the choices; the VALUE must be empty.
     # Checked on the parsed YAML, so a comment cannot fail or hide a real value.

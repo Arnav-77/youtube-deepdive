@@ -17,7 +17,7 @@ from pathlib import Path
 
 import yaml
 
-from app.generation import citation_segments
+from app.citations import citation_segments
 from evaluation.answer_files import LABELS_PATH, excerpts_by_rank, load_answer, segment_hash
 
 
@@ -75,6 +75,7 @@ def skeleton_block(answer_file_name: str, answer_file: dict) -> str:
             f"        cited: [{', '.join(str(n) for n in seg.cited)}]",
             f"        hash: {json.dumps(segment_hash(seg.text))}",
             "        label:   # supported | partly | unsupported, by hand",
+            "        note:    # optional; \"support found in [n]\" for a link cited elsewhere",
         ]
     return "\n".join(out) + "\n"
 
