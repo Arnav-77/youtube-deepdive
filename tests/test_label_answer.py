@@ -1,3 +1,4 @@
+import sys
 """Tests for evaluation/label_answer.py. Pure functions only, no files outside tmp_path."""
 
 import pytest
@@ -141,3 +142,26 @@ def test_other_top_level_keys_are_preserved():
     block = skeleton_block("row26.json", saved("A [1]."))
     with pytest.raises(ValueError):
         append_skeleton(text, block, "row26.json")
+
+
+def test_show_prints_segments_and_writes_no_labels_file(tmp_path, monkeypatch, capsys):
+    import json
+    from evaluation import label_answer
+
+    answer_path = tmp_path / "row1.json"
+    answer_path.write_text(json.dumps({
+        "row_id": 1, "video_id": "V", "question": "Q?", "model": "m",
+        "chunk_ids": [1], "answer": "Claim [1].",
+        "excerpts": [{"rank": 1, "chunk_id": 1, "start_seconds": 10.0,
+                      "end_seconds": 40.0, "text": "the excerpt words"}],
+    }), encoding="utf-8")
+    labels = tmp_path / "grounding_labels.yaml"
+    labels.write_text("answers: []\n", encoding="utf-8")
+    monkeypatch.setattr(label_answer, "LABELS_PATH", labels)
+    monkeypatch.setattr(sys, "argv", ["label_answer.py", "--show", str(answer_path)])
+
+    label_answer.main()
+
+    out = capsys.readouterr().out
+    assert "[0] hash" in out and "the excerpt words" in out
+    assert labels.read_text(encoding="utf-8") == "answers: []\n"

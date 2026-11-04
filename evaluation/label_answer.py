@@ -1,11 +1,15 @@
 """Prepare one saved answer for hand labelling.
 
     python evaluation/label_answer.py evaluation/answers/row26.json
+    python evaluation/label_answer.py --show evaluation/answers/row26.json
 
 Prints each segment with its index and hash, next to the text of the excerpts
 it cites. Then appends a skeleton block to evaluation/grounding_labels.yaml,
 with the index, citations and hash filled in and `refused` and each `label`
 left blank.
+
+--show prints the same text and writes nothing. Use it to read an answer
+before deciding its labels.
 
 This script never fills a label or a refusal. Those are judgements, and
 they are written by hand, by the person reading the answer.
@@ -119,12 +123,18 @@ def append_skeleton(labels_text: str, block: str, answer_file_name: str) -> str:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        sys.exit("usage: python evaluation/label_answer.py evaluation/answers/rowN.json")
-    path = Path(sys.argv[1])
+    args = sys.argv[1:]
+    show_only = "--show" in args
+    args = [a for a in args if a != "--show"]
+    if len(args) != 1:
+        sys.exit("usage: python evaluation/label_answer.py [--show] evaluation/answers/rowN.json")
+    path = Path(args[0])
     answer_file = load_answer(path)
 
     print(render_segments(answer_file))
+    if show_only:
+        # Read only: nothing is written to the labels file.
+        return
 
     if not LABELS_PATH.exists():
         sys.exit(f"{LABELS_PATH.name} is missing; restore it from git")
