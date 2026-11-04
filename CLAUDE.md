@@ -91,7 +91,7 @@ Code lives inside WSL at ~/code/deepdive, never under /mnt/c.
 - Live retrieval: dense (pgvector cosine distance, `<=>`), chunking run fixed_1000_200, top 5. No vector index; exact scan.
 - 23 videos ingested, 1,574 chunks embedded. 19 labelled questions on 5 videos (14 reported on 4 videos, 5 dev on 1).
 - Reported set, dense: Recall@5 14/14, MRR 0.917, median citation offset 15 s, late citations 5/14.
-- Tests: offline pytest suite, 125 tests, all passing (4 Nov). Covers the pure functions (chunking and timestamps, prompt rendering, the citation parser and segmenter in app/citations.py, video id parsing, the eval overlap rule, the grounding scorer, the labelling helpers) and an import check of app.main. No network, no database.
+- Tests: offline pytest suite, 133 tests, all passing (4 Nov). Covers the pure functions (chunking and timestamps, prompt rendering, the citation parser and segmenter in app/citations.py, video id parsing, the eval overlap rule, the grounding scorer, the labelling helpers) and an import check of app.main. No network, no database.
 - Grounding helpers, all in evaluation/ and all reading files or one read-only query:
   - `app/citations.py`: `cited_numbers` (one parser for every citation) and `citation_segments` (splits an answer at its citation runs).
   - `save_answer.py`: copies one query_logs row to `evaluation/answers/rowN.json` (gitignored).
@@ -100,7 +100,7 @@ Code lives inside WSL at ~/code/deepdive, never under /mnt/c.
   - `score_grounding.py`: scores the hand labels, overall and per model, with sample sizes. Stops on an untrustworthy label; never counts an unlabelled block.
   - Rules and workflow: docs/grounding.md.
 - Labelling workflow: `save_answer.py --row N`, then `label_answer.py` on the saved file, then Arnav fills `refused`, `label` and `note` by hand, then `score_grounding.py`. No script fills a label.
-- Known gaps: a refusal is logged as status "answered"; model names are not validated at startup; the live server cannot add videos; grounding has a workflow but no labels yet, so no grounding number exists; a citation at the start of an answer ("[1] The climber said X.") becomes its own segment with no claim, and the claim after it counts as uncited (handling undecided); the grounding rubric has one labeller, no agreement measure.
+- Known gaps: a refusal is logged as status "answered"; model names are not validated at startup; the live server cannot add videos; grounding has a workflow, and the golden Everest answer (row 24) has a blank label block waiting for Arnav, so no grounding number exists yet; the grounding rubric has one labeller, no agreement measure.
 
 ## Build order to 23 Nov
 
