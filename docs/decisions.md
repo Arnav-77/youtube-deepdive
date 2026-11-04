@@ -1,5 +1,18 @@
 # Design decisions
 
+## 4 Nov 2026: the scorer stops on untrustworthy labels, reports unlabelled and unsent citations, and the parsers are pure
+
+**Decision.** The scorer stops, printing every problem and no numbers, when a label block cannot be trusted: a missing answer file, a stale hash, a label outside the three values, or a refused value that is not true or false. Blocks that are not yet labelled are listed and left out of every number. A citation to an excerpt the model was never sent is counted and reported, not treated as a scorer error, because it is a real model failure that the hand label already judges. The citation parser and the segmenter live in app/citations.py, and the relevance rule in evaluation/relevance.py. Both are pure, so the helpers and the scorer run with no DATABASE_URL.
+
+**Why.** The integrity checks guard against scoring a label against text it was not written for, which is the one error that would silently corrupt a number. An unlabelled block is work in progress, not an error, so stopping on it would make partial reporting impossible. A bad citation is data about the model. The pure modules exist because importing app.generation or run_eval loads app.db, which raises when DATABASE_URL is unset, and the helpers must run in a worktree with no .env.
+
+**Alternatives considered.**
+- Stop on any unlabelled block. Rejected: the report could never be run mid-labelling.
+- Stop on a citation to an unsent excerpt, as the plan first said. Changed: it would block scoring on a model behaviour the label already captures.
+- Keep the parser in app/generation.py and import it. Rejected: the import chain reaches the database layer.
+
+**Also decided.** The skeleton has a blank note per segment, so a "support found in [n]" note can be counted as a wrong-link citation without a new label category.
+
 ## 4 Nov 2026: grounding is measured per citation segment, refusal is a hand label scored by gold spans
 
 **Decision.** An answer is split into segments at citation runs, using the existing `cited_numbers` parser. Each segment is labelled supported, partly supported or unsupported, judged only against the excerpts its own run cites. The grounding rate is reported next to an answer-level rate (every segment supported). Refusal is a hand label per answer. Its correctness is decided by the gold spans: a refusal is correct only when the gold spans are empty, and a refusal on a non-empty span is a false refusal with a retrieval or generation cause. Refusal accuracy is never combined with the grounding rate. Rules are in docs/grounding.md.

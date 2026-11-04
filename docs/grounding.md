@@ -38,6 +38,22 @@ Correctness is decided by the gold spans in `evaluation/golden_set.yaml`:
   - *generation miss*: a retrieved chunk overlaps a gold span, and the model refused anyway.
 - **Answered:** gold spans are not empty and the app answered. Grounding applies.
 
+## Workflow: from a logged answer to a number
+
+Run these from the main folder, whose `.env` points at the dev branch. Each step reads files or makes one read-only query. None calls Gemini.
+
+1. **Save the answer.** `python evaluation/save_answer.py --row N` copies one `query_logs` row and the chunks it cites into `evaluation/answers/rowN.json` (gitignored). Records the model, `model_requested`, `prompt_version`, `commit_sha`, `retrieval_method`, `chunking_run` and the chunk ids in rank order.
+2. **Prepare the labels.** `python evaluation/label_answer.py evaluation/answers/rowN.json` prints each segment with its index, its hash, and the text and time of each excerpt it cites. It appends a block to `evaluation/grounding_labels.yaml` with `refused`, `label` and `note` left blank. Running it again for the same answer is refused.
+3. **Label by hand.** Set `refused: true` or `false`. For an answered block, set each segment's `label` to `supported`, `partly` or `unsupported`. Add a `note` of `support found in [n]` where the support sits in another excerpt. The script never fills these.
+4. **Score.** `python evaluation/score_grounding.py` prints the numbers, overall and per model, with sample sizes.
+
+Scoring rules:
+
+- **Stops, with every problem listed, when a block cannot be trusted:** the saved answer file is missing; the segments no longer match the saved text (a stale label); a label is not one of the three values; `refused` is not true or false.
+- **Reports and leaves out, never a failure:** a block that is not yet labelled (`refused` blank, or an answered block with a blank label). Its answer is listed under "not yet labelled" and counted in no rate.
+- **Reports, not a failure:** a citation to an excerpt the model was never sent. The segment still gets its hand label, normally `unsupported`.
+- **Not judged:** a saved answer whose question is not in `golden_set.yaml`. It is listed, and it has no refusal result.
+
 ## Numbers the scorer reports
 
 Every number is printed with its sample size, overall and per `model`.
