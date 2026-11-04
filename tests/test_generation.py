@@ -2,11 +2,10 @@
 
 import pytest
 
+from app.citations import citation_segments, cited_numbers
 from app.generation import (
     _TEMPLATE,
     build_context,
-    citation_segments,
-    cited_numbers,
     invalid_citations,
     render_prompt,
 )
