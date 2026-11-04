@@ -43,20 +43,9 @@ from app.db import SessionLocal
 from app.retrieval import search
 from app.embeddings import CACHE_STATS
 from app.retrieval import dense_search, hybrid_search, search
+from evaluation.relevance import overlaps
 
 METHODS = {"lexical": search, "dense": dense_search, "hybrid": hybrid_search}
-
-
-def overlaps(chunk_start, chunk_end, spans):
-    """True when the chunk's time range shares some time with any gold span.
-
-    Two ranges overlap when each starts before the other ends. Strictly
-    before: a chunk ending at exactly the second a span starts only touches
-    it, contains none of the answer, and does not count. Written this
-    way rather than by enumerating cases because the four-case version is
-    where off-by-one bugs live.
-    """
-    return any(chunk_start < end and start < chunk_end for start, end in spans)
 
 
 def evaluate(session, data, chunking_run, k, set_filter, retrieve=search):
