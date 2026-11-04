@@ -19,6 +19,7 @@ Conversational RAG over YouTube transcripts. Every claim in an answer links to t
 | app/chunking.py | chunk_transcript (pure), store_chunks (append only) |
 | app/embeddings.py | Embedding calls, pacing, query_embeddings cache |
 | app/retrieval.py | dense_search (live), search (word search fallback), hybrid_search (tested, not live) |
+| app/citations.py | Citation parser (`cited_numbers`) and segmenter (`citation_segments`), pure |
 | app/generation.py | Prompt rendering, LiteLLM call, citation number check |
 | app/prompts/answer_v1.txt | The prompt template |
 | app/models.py, app/db.py | Tables and connection |
@@ -26,6 +27,7 @@ Conversational RAG over YouTube transcripts. Every claim in an answer links to t
 | evaluation/golden_set.yaml | Hand-made answer key (23 videos, 5 dev and 18 reported) |
 | evaluation/run_eval.py | Retrieval metrics: Recall@k, MRR, citation offset |
 | evaluation/log_stats.py | Failure rate, latency, cost from query_logs |
+| evaluation/save_answer.py, label_answer.py, show_transcript.py, score_grounding.py | Grounding workflow: save a logged answer, prepare its labels, read the transcript, score the hand labels (docs/grounding.md) |
 
 ## Commands
 
@@ -84,13 +86,21 @@ Code lives inside WSL at ~/code/deepdive, never under /mnt/c.
 9. If a change makes the README or docs/ stale, update them in the same change.
 10. Anything written for his supervisor: no em dashes or en dashes.
 
-## Current state (29 Oct 2026)
+## Current state (4 Nov 2026)
 
 - Live retrieval: dense (pgvector cosine distance, `<=>`), chunking run fixed_1000_200, top 5. No vector index; exact scan.
 - 23 videos ingested, 1,574 chunks embedded. 19 labelled questions on 5 videos (14 reported on 4 videos, 5 dev on 1).
 - Reported set, dense: Recall@5 14/14, MRR 0.917, median citation offset 15 s, late citations 5/14.
-- Tests: offline pytest suite, 57 tests, all passing (3 Nov). Covers the pure functions only: chunking and timestamps, prompt rendering, the shared citation parser, video id parsing, the eval overlap rule. No network, no database.
-- Known gaps: a refusal is logged as status "answered"; model names are not validated at startup; main.py endpoints have no tests; the live server cannot add videos; grounding is not measured.
+- Tests: offline pytest suite, 125 tests, all passing (4 Nov). Covers the pure functions (chunking and timestamps, prompt rendering, the citation parser and segmenter in app/citations.py, video id parsing, the eval overlap rule, the grounding scorer, the labelling helpers) and an import check of app.main. No network, no database.
+- Grounding helpers, all in evaluation/ and all reading files or one read-only query:
+  - `app/citations.py`: `cited_numbers` (one parser for every citation) and `citation_segments` (splits an answer at its citation runs).
+  - `save_answer.py`: copies one query_logs row to `evaluation/answers/rowN.json` (gitignored).
+  - `label_answer.py`: prints the segments and the excerpts they cite, and appends a blank label block to `grounding_labels.yaml`.
+  - `show_transcript.py`: prints a stored transcript as `[mm:ss]` lines.
+  - `score_grounding.py`: scores the hand labels, overall and per model, with sample sizes. Stops on an untrustworthy label; never counts an unlabelled block.
+  - Rules and workflow: docs/grounding.md.
+- Labelling workflow: `save_answer.py --row N`, then `label_answer.py` on the saved file, then Arnav fills `refused`, `label` and `note` by hand, then `score_grounding.py`. No script fills a label.
+- Known gaps: a refusal is logged as status "answered"; model names are not validated at startup; the live server cannot add videos; grounding has a workflow but no labels yet, so no grounding number exists; a citation at the start of an answer ("[1] The climber said X.") becomes its own segment with no claim, and the claim after it counts as uncited (handling undecided); the grounding rubric has one labeller, no agreement measure.
 
 ## Build order to 23 Nov
 
