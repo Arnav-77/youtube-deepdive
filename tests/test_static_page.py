@@ -123,6 +123,43 @@ def test_model_text_never_sets_a_link_target_or_markup(page_html):
     assert "renderAnswer" not in page_html  # the old, text-only renderer is gone
 
 
+def test_viewport_meta_tag_is_present(page_html):
+    assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in page_html
+
+
+def test_question_comes_before_the_videos_on_narrow_screens(page_html):
+    # Narrow screens stack the panes in this order: the question first.
+    assert 'grid-template-areas: "ask" "videos";' in page_html
+    assert page_html.index('id="ask-heading"') < page_html.index('id="videos-heading"')
+
+
+def test_wide_screens_put_the_picker_left_and_the_question_right(page_html):
+    assert "@media (min-width: 901px)" in page_html
+    assert 'grid-template-areas: "videos ask";' in page_html
+    assert "repeat(2, minmax(0, 1fr))" in page_html
+
+
+def test_each_pane_scrolls_inside_itself_on_wide_screens(page_html):
+    wide = page_html[page_html.index("@media (min-width: 901px)"):]
+    assert "height: 100dvh;" in wide
+    assert "overflow-y: auto;" in wide  # on .pane
+    assert "min-height: 0;" in wide
+
+
+def test_enter_asks_and_shift_enter_is_left_for_a_new_line(page_html):
+    assert 'addEventListener("keydown"' in page_html
+    assert 'event.key !== "Enter" || event.shiftKey' in page_html
+    assert "requestSubmit()" in page_html
+
+
+def test_enter_is_ignored_while_an_input_method_is_composing(page_html):
+    assert "event.isComposing" in page_html
+
+
+def test_enter_cannot_send_a_second_question_while_one_is_being_answered(page_html):
+    assert "if (button.disabled) return;" in page_html
+
+
 def test_thumbnails_load_lazily(page_html):
     assert 'loading: "lazy"' in page_html
 
