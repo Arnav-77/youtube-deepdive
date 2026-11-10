@@ -87,9 +87,16 @@ def test_paging_uses_the_one_videos_response_and_no_server_paging(page_html):
     assert "page=" not in page_html    # likewise: no page number sent to the server
 
 
-def test_title_is_shown_under_the_thumbnail_with_the_id_as_fallback(page_html):
+def test_title_is_shown_under_the_thumbnail_with_untitled_as_fallback(page_html):
     assert "video.title" in page_html
-    assert "el(\"code\", {}, id)" in page_html  # the id, when there is no title
+    assert "Untitled video" in page_html
+    # A card never shows the raw id as its name.
+    assert 'el("code"' not in page_html
+
+
+def test_card_titles_are_at_most_two_lines_with_an_ellipsis(page_html):
+    assert "-webkit-line-clamp: 2;" in page_html
+    assert "overflow: hidden;" in page_html
 
 
 def test_thumbnails_load_lazily(page_html):

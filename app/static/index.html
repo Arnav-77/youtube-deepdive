@@ -214,7 +214,16 @@
     background: var(--border);
   }
   #videos code { word-break: break-all; }
-  .title { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  /* A card's name: at most two lines, then an ellipsis. */
+  .title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .title.untitled { font-style: italic; font-weight: 400; color: var(--muted); }
 
   /* Previous / Next under the list. The hidden attribute must win over display rules. */
   [hidden] { display: none !important; }
@@ -322,12 +331,12 @@ const PAGE_SIZE = 5;
 let videoItems = []; // one <li> per video, in list order
 let page = 0; // zero-based index of the page on show
 
-// The title under a thumbnail, or the id when the video has no title yet.
+// The name shown under a thumbnail and above the question. A video with no
+// title shows "Untitled video", never its raw id.
 function nameOf(id) {
   const video = videosById.get(id);
-  return video && video.title
-    ? el("span", { className: "title" }, video.title)
-    : el("code", {}, id);
+  if (video && video.title) return el("span", { className: "title" }, video.title);
+  return el("span", { className: "title untitled" }, "Untitled video");
 }
 
 // Shows the chosen video above the question box, so the visitor can see what
