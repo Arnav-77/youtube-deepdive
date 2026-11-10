@@ -54,8 +54,25 @@
     line-height: 1.6;
   }
 
-  /* One centred column, so the page reads the same on a phone and a laptop. */
-  .column { max-width: 40rem; margin: 0 auto; padding: 24px 16px 48px; }
+  /* Narrow screens (phones, tablets): one column, question first, then the
+     videos. The page scrolls as a whole. Wide screens: see the media query below. */
+  .top, .layout {
+    width: 100%;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .top { padding-top: 20px; }
+  .layout {
+    display: grid;
+    gap: 16px;
+    padding-bottom: 32px;
+    grid-template-areas: "ask" "videos";
+  }
+  .ask-pane { grid-area: ask; }
+  .videos-pane { grid-area: videos; }
+  .pane { margin: 0; }
   h1 { font-size: 1.5rem; margin: 0 0 4px; }
   h2 { font-size: 1.1rem; margin: 0 0 12px; }
   .lede { margin: 0 0 20px; color: var(--muted); }
@@ -64,7 +81,6 @@
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 20px;
-    margin-bottom: 16px;
   }
   .muted { color: var(--muted); }
   .error { color: var(--error); }
@@ -244,19 +260,45 @@
     border: 1px solid var(--accent);
   }
 
+  /* Phones (up to 480 px): a little less padding, so two thumbnail columns fit at 360 px. */
   @media (max-width: 480px) {
     .chosen img { width: 96px; }
+    .pane { padding: 14px; }
+  }
+
+  /* Wide screens (over 900 px): two panes side by side, each as tall as the
+     window and scrolling inside itself. The video picker is on the left and
+     the question with its answer on the right. */
+  @media (min-width: 901px) {
+    body {
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .top, .layout { max-width: none; }
+    .top { flex: none; padding-bottom: 8px; }
+    .layout {
+      flex: 1;
+      min-height: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-areas: "videos ask";
+      padding-bottom: 20px;
+    }
+    .pane { min-height: 0; overflow-y: auto; }
   }
 </style>
 </head>
 <body>
-<main class="column">
-  <header>
-    <h1>YouTube Deep-Dive</h1>
-    <p class="lede">Pick a video, ask a question, then follow the links to the moment in the video that supports each claim.</p>
-  </header>
+<header class="top">
+  <h1>YouTube Deep-Dive</h1>
+  <p class="lede">Pick a video, ask a question, then follow the links to the moment in the video that supports each claim.</p>
+</header>
 
-  <section class="card" aria-labelledby="ask-heading">
+<main class="layout">
+  <section class="card pane ask-pane" aria-labelledby="ask-heading">
     <h2 id="ask-heading">Ask about a video</h2>
     <div id="chosen" class="chosen"></div>
     <form id="ask-form">
@@ -270,7 +312,7 @@
     <div id="answer" aria-live="polite"></div>
   </section>
 
-  <section class="card" aria-labelledby="videos-heading">
+  <section class="card pane videos-pane" aria-labelledby="videos-heading">
     <h2 id="videos-heading">Choose a video</h2>
     <p id="videos-status" class="muted">Loading videos...</p>
     <ul id="videos"></ul>
@@ -513,6 +555,8 @@ async function ask(event) {
   const status = document.getElementById("status");
   const answer = document.getElementById("answer");
   const button = document.getElementById("ask-button");
+  // Enter can submit while a question is already being answered; ignore it then.
+  if (button.disabled) return;
   // The radio buttons are in #videos, outside the form, so search the whole
   // page. Searching only inside the form found nothing and always said "Pick a video".
   const picked = document.querySelector('input[name="video"]:checked');
@@ -565,6 +609,16 @@ async function ask(event) {
 }
 
 document.getElementById("ask-form").addEventListener("submit", ask);
+
+// Enter asks the question; Shift+Enter starts a new line. Enter is left alone
+// while an input method is composing text (event.isComposing), so typing in
+// other scripts still works. Some browsers report keyCode 229 for the same thing.
+document.getElementById("question").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.shiftKey) return;
+  if (event.isComposing || event.keyCode === 229) return;
+  event.preventDefault();
+  document.getElementById("ask-form").requestSubmit();
+});
 document.getElementById("videos").addEventListener("change", (event) => {
   if (event.target.name === "video") showChosen(event.target.value);
 });
