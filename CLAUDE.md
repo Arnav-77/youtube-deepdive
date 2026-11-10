@@ -75,6 +75,7 @@ Code lives inside WSL at ~/code/deepdive, never under /mnt/c.
 6. Generation is not deterministic even at temperature 0. Run each question several times and report the spread.
 7. Report every number with its sample size. No P95 from a handful of requests.
 8. Latency figures come from production, not the laptop (about 280 ms per database round trip from Delhi to Ohio).
+9. Never run an evaluation script from a test, in this process or a child one. Tests may read a script as source (ast) or import its pure functions. A child process does not get conftest.py's network block, and some scripts act at import time (queries, network calls, writes to the golden set).
 
 ## How to work with Arnav
 

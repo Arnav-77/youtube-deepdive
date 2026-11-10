@@ -116,6 +116,45 @@ Resending the same paste to a video that exists is a resume and does not count a
 
 **Also decided.** Injection: the paste reaches the model only as excerpts, through the existing path. The model has no tools, render_prompt is single pass, and citations are checked in code. Accepted residue: a "[3]" typed into the transcript can be echoed by the model. The link still resolves to the number the code assigned, so no wrong link results. The future web page must render transcript text escaped, never as HTML.
 
+## 10 Nov 2026: GET /videos is one route: an array the page reads, with the added_by and checked labels
+
+**Decision.** The branches had two definitions of GET /videos. The merged route keeps main's shape: a top-level array, with video_id, title, duration_seconds, source and fetched_at (the page reads video_id and title). It adds added_by ('captions', 'admin' or 'visitor') and checked (false only for visitor pastes). It lists only videos with chunks in fixed_1000_200, as /ask does. Hidden ids are removed before the cap, which is 200, and the list is newest first.
+
+**Why.** The page already reads the array; changing its shape would break it. The labels are needed so a visitor's paste is not shown as checked. The cap comes after hidden removal, so a hidden video never takes one of the 200 places.
+
+**Alternatives considered.** Keep my object shape with a `videos` key. Rejected: the page on main reads the array, and changing the page for this would widen the change. Keep both routes under different paths. Rejected: two list endpoints drift apart and the page would need to choose.
+
+## 10 Nov 2026: titles come from YouTube's oEmbed endpoint, and a missing title is NULL, never an error
+
+**Decision.** A video's title is fetched from YouTube's public oEmbed endpoint (`https://www.youtube.com/oembed`, no key). It is fetched at ingestion, after the transcript succeeds, and by `evaluation/backfill_titles.py` for videos that have none. Any failure leaves the title NULL and the ingestion goes on. The page shows the title under each thumbnail and falls back to the video id. The backfill script is a dry run unless given `--write`.
+
+**Why.** The `videos.title` column had existed since the first migration and was never filled, so the page could only show ids. oEmbed needs no key and no new package: `httpx` is already pinned. A title is decoration, so it must never cost a video its transcript, and a failed lookup prints its reason to the logs rather than raising.
+
+**Alternatives considered.**
+- Scrape the watch page for the title. Rejected: it depends on page markup that can change without notice, and oEmbed is the documented route.
+- Use the YouTube Data API. Rejected: it needs a key and a quota, and CLAUDE.md asks before any hosted service.
+- Fail ingestion when the title lookup fails. Rejected: a transcript is the expensive part, and a title is not worth losing one over.
+- Backfill with an automatic write. Rejected: the production `videos` table is written only when the owner runs `--write`, after reading the dry-run output.
+- Page size and paging on the server. Rejected for 23 videos: the page pages the one `/videos` response, so no page parameter exists.
+
+**Consequences.** Ingestion now makes one more outbound request, to YouTube's oEmbed endpoint. It is not yet verified from Render, which YouTube already blocks for transcripts, so a live ingest may keep the title NULL until the backfill runs from the laptop. The backfill spaces its requests a second apart, one video at a time, to stay within YouTube's rate limits.
+
+## 10 Nov 2026: the web page is one static file served by the API, at /ui/
+
+**Decision.** The web page is one HTML file (`app/static/index.html`, inline CSS and JS, no build step) served by FastAPI at `/ui/` from the same origin as the API. It uses two endpoints: `GET /videos` to list the videos `/ask` can answer, and `POST /ask`. Each video shows a YouTube thumbnail, loaded by the visitor's browser, next to its id. `GET /` stays JSON for Render's probe and now includes `"ui": "/ui/"`. The branch's commits do not use `[skip render]`, because Render deploys the newest pushed commit and a skip would leave the page undeployed.
+
+**Why.** The page is a simple form and a list. A second service adds a deploy to keep in step, a hosted account, CORS rules, and a framework. The viva rule ("explain every line without notes") and the time left before 23 Nov both count against that. The static file adds about 0 MB to the server, needs no new package, and is one deploy. Thumbnails come from the visitor's browser, so the server makes no request to YouTube and no server change is needed.
+
+**Alternatives considered.**
+- Next.js on Vercel. Rejected for now: the first page load would be instant, but that is the only gain. It adds a hosted service (CLAUDE.md asks first), a second deploy, CORS, and React, which the author has not yet learned. Revisit only if the cold start after Render's 15-minute sleep is a real problem in production, measured there.
+- Fetching titles at ingestion (YouTube oEmbed) or backfilling the 23 existing rows. Rejected for now: oEmbed adds an outbound request from Render, which YouTube already blocks for transcripts, and the backfill writes to the production `videos` table. The list shows the video id until titles are decided separately.
+- A `<select>` dropdown. Rejected: it cannot show thumbnails.
+- Serving the page from `/` instead of `/ui/`. Rejected: `/` must answer Render's HEAD probe with the JSON it already returns.
+- Building the page with `innerHTML`. Rejected: model output is untrusted text. The page builds elements with `createElement` and `textContent`, and a test fails if the code sets `innerHTML`.
+
+**Consequences.** The page's JavaScript is not run by the tests, which check the file's text only; it is checked by hand in a browser. The first visit after Render's sleep waits for the service to wake. The `videos` listing filter is checked by hand on the dev branch, not in tests.
+
+
 ## 4 Nov 2026: a citation at the start of an answer belongs to the claim after it, and non-golden answers are examples
 
 **Decision.** A citation run at the very start of an answer ("[1] The climber said X.") is held and attached to the next claim, so the claim is one segment cited 1. The segment is flagged `leads_with_citation`, and the scorer reports how many scored segments used the rule. A saved answer whose question is not in the golden set is listed as an example and left out of every rate, refusal result and segment count.

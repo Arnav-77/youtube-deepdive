@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube Deep-Dive</title>
+<style>
+  /* Inline on purpose: one file, no build step, no outside stylesheet or font.
+     Colours are tokens here; dark mode swaps the tokens, not the rules. */
+  :root {
+    --bg: #f6f5f2;
+    --card: #ffffff;
+    --fg: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #d9d6cf;
+    --accent: #1d5fd1;
+    --on-accent: #ffffff;
+    --tint: #e9f0fc;
+    --error: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141418;
+      --card: #1e1e24;
+      --fg: #ececf1;
+      --muted: #9a9aa3;
+      --border: #3a3a44;
+      --accent: #7aa7ff;
+      --on-accent: #0b0b0e;
+      --tint: #22304a;
+      --error: #ff8a80;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141418;
+    --card: #1e1e24;
+    --fg: #ececf1;
+    --muted: #9a9aa3;
+    --border: #3a3a44;
+    --accent: #7aa7ff;
+    --on-accent: #0b0b0e;
+    --tint: #22304a;
+    --error: #ff8a80;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  /* Narrow screens (phones, tablets): one column, question first, then the
+     videos. The page scrolls as a whole. Wide screens: see the media query below. */
+  .top, .layout {
+    width: 100%;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .top { padding-top: 20px; }
+  .layout {
+    display: grid;
+    gap: 16px;
+    padding-bottom: 32px;
+    grid-template-areas: "ask" "videos";
+  }
+  .ask-pane { grid-area: ask; }
+  .videos-pane { grid-area: videos; }
+  .pane { margin: 0; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  .lede { margin: 0 0 20px; color: var(--muted); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .muted { color: var(--muted); }
+  .error { color: var(--error); }
+
+  /* The question box, with the chosen video shown above it. */
+  .chosen {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    min-height: 64px;
+    padding: 10px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    background: var(--tint);
+  }
+  .chosen img {
+    width: 120px;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 4px;
+    flex: none;
+  }
+  .chosen code { word-break: break-all; }
+
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  textarea {
+    display: block;
+    width: 100%;
+    min-height: 5rem;
+    padding: 10px 12px;
+    font: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  button {
+    font: inherit;
+    font-weight: 600;
+    padding: 10px 20px;
+    color: var(--on-accent);
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: progress; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Loading: a small spinner. Slower when the visitor prefers less motion. */
+  .spinner {
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-right: 0.5em;
+    vertical-align: -0.1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+
+  /* The answer: paragraphs and bullet lists built from the Markdown subset. */
+  .answer-text { margin-top: 16px; }
+  .answer-text p { margin: 0 0 0.75em; }
+  .answer-text ul { margin: 0 0 0.75em; padding-left: 1.4em; }
+  .answer-text li + li { margin-top: 0.3em; }
+  .answer-text strong { font-weight: 700; }
+  .meta { margin: 12px 0 0; font-size: 0.85rem; color: var(--muted); }
+
+  /* Citations: small pill buttons, "▶ 0:51", each opening the video at that moment. */
+  a.cite {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    margin: 0 0.15em;
+    padding: 0 0.6em;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    color: var(--accent);
+    font-size: 0.85em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  a.cite:hover, a.cite:focus-visible { background: var(--accent); color: var(--on-accent); }
+  a.cite:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* The video list: a compact grid. auto-fill fits as many columns as the width allows. */
+  #videos {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  #videos li { position: relative; }
+  #videos input { position: absolute; opacity: 0; pointer-events: none; }
+  #videos label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    height: 100%;
+    margin: 0;
+    padding: 6px;
+    font-weight: 400;
+    font-size: 0.85rem;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  #videos label:hover { border-color: var(--muted); }
+  #videos label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* The selected card: accent border, tinted background, and a "Selected" badge. */
+  #videos label:has(input:checked) {
+    border-color: var(--accent);
+    background: var(--tint);
+  }
+  #videos label:has(input:checked)::after {
+    content: "Selected";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 0 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--on-accent);
+    background: var(--accent);
+    border-radius: 999px;
+  }
+  #videos img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 6px;
+    background: var(--border);
+  }
+  #videos code { word-break: break-all; }
+  /* A card's name: at most two lines, then an ellipsis. */
+  .title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .title.untitled { font-style: italic; font-weight: 400; color: var(--muted); }
+
+  /* Previous / Next under the list. The hidden attribute must win over display rules. */
+  [hidden] { display: none !important; }
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .pager button {
+    color: var(--accent);
+    background: var(--card);
+    border: 1px solid var(--accent);
+  }
+
+  /* Phones (up to 480 px): a little less padding, so two thumbnail columns fit at 360 px. */
+  @media (max-width: 480px) {
+    .chosen img { width: 96px; }
+    .pane { padding: 14px; }
+  }
+
+  /* Wide screens (over 900 px): two panes side by side, each as tall as the
+     window and scrolling inside itself. The video picker is on the left and
+     the question with its answer on the right. */
+  @media (min-width: 901px) {
+    body {
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .top, .layout { max-width: none; }
+    .top { flex: none; padding-bottom: 8px; }
+    .layout {
+      flex: 1;
+      min-height: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-areas: "videos ask";
+      padding-bottom: 20px;
+    }
+    .pane { min-height: 0; overflow-y: auto; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>YouTube Deep-Dive</h1>
+  <p class="lede">Pick a video, ask a question, then follow the links to the moment in the video that supports each claim.</p>
+</header>
+
+<main class="layout">
+  <section class="card pane ask-pane" aria-labelledby="ask-heading">
+    <h2 id="ask-heading">Ask about a video</h2>
+    <div id="chosen" class="chosen"></div>
+    <form id="ask-form">
+      <label for="question">Your question</label>
+      <textarea id="question" maxlength="500" required></textarea>
+      <div class="row">
+        <button type="submit" id="ask-button">Ask</button>
+        <span id="status" class="muted" role="status"></span>
+      </div>
+    </form>
+    <div id="answer" aria-live="polite"></div>
+  </section>
+
+  <section class="card pane videos-pane" aria-labelledby="videos-heading">
+    <h2 id="videos-heading">Choose a video</h2>
+    <p id="videos-status" class="muted">Loading videos...</p>
+    <ul id="videos"></ul>
+    <nav class="pager" id="pager" aria-label="Video pages" hidden>
+      <button type="button" id="prev">Previous</button>
+      <span id="page-label" class="muted"></span>
+      <button type="button" id="next">Next</button>
+    </nav>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+// YouTube's own thumbnail host. The visitor's browser loads it, not the server.
+const thumbnailUrl = (id) =>
+  `https://img.youtube.com/vi/${encodeURIComponent(id)}/mqdefault.jpg`;
+
+// Matches an excerpt number in the answer text, e.g. the "[2]" in "...[2]".
+const CITATION_PATTERN = /\[(\d+)\]/g;
+
+// The only Markdown the page shows: **bold**, and "* " or "- " bullet lines.
+// Anything else is shown as typed.
+const BOLD_PATTERN = /\*\*(.+?)\*\*/g;
+const BULLET_PATTERN = /^\s*[*-]\s+(.*)$/;
+
+// Builds an element with createElement, never innerHTML. Strings become text
+// nodes, so model output is shown as text and can never run as HTML.
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs || {})) {
+    if (key === "className") node.className = value;
+    else node.setAttribute(key, value);
+  }
+  for (const child of children) {
+    node.append(typeof child === "string" ? document.createTextNode(child) : child);
+  }
+  return node;
+}
+
+// 83.0 -> "1:23". Seconds only, because that is what the server sends.
+function mmss(seconds) {
+  const total = Math.floor(seconds);
+  const minutes = Math.floor(total / 60);
+  const secs = String(total % 60).padStart(2, "0");
+  return `${minutes}:${secs}`;
+}
+
+function thumbnail(id, size) {
+  const img = el("img", {
+    src: thumbnailUrl(id),
+    alt: "",
+    width: size.width,
+    height: size.height,
+    loading: "lazy",
+  });
+  // If YouTube has no thumbnail for a video, drop the picture and keep the id.
+  img.addEventListener("error", () => img.remove());
+  return img;
+}
+
+// Every video from the one /videos response, by id, so the chosen box can show its title.
+const videosById = new Map();
+
+// Five videos per page. The whole list comes in one response; paging is done here.
+const PAGE_SIZE = 5;
+let videoItems = []; // one <li> per video, in list order
+let page = 0; // zero-based index of the page on show
+
+// The name shown under a thumbnail and above the question. A video with no
+// title shows "Untitled video", never its raw id.
+function nameOf(id) {
+  const video = videosById.get(id);
+  if (video && video.title) return el("span", { className: "title" }, video.title);
+  return el("span", { className: "title untitled" }, "Untitled video");
+}
+
+// Shows the chosen video above the question box, so the visitor can see what
+// they are asking about without scrolling back to the list.
+function showChosen(id) {
+  const box = document.getElementById("chosen");
+  if (!id) {
+    box.replaceChildren(el("p", { className: "muted" }, "No video chosen yet. Pick one below."));
+    return;
+  }
+  box.replaceChildren(thumbnail(id, { width: "120", height: "68" }), nameOf(id));
+}
+
+function videoRow(video) {
+  // No video is selected until the visitor picks one.
+  const radio = el("input", { type: "radio", name: "video", value: video.video_id });
+  return el(
+    "li",
+    {},
+    el("label", {}, radio, thumbnail(video.video_id, { width: "160", height: "90" }), nameOf(video.video_id)),
+  );
+}
+
+// Shows the current page and enables Previous and Next only where they lead somewhere.
+// Every row is built once and hidden rather than rebuilt, so the selected radio button survives paging.
+function showPage() {
+  videoItems.forEach((item, i) => {
+    item.hidden = Math.floor(i / PAGE_SIZE) !== page;
+  });
+  const pages = Math.max(1, Math.ceil(videoItems.length / PAGE_SIZE));
+  document.getElementById("prev").disabled = page === 0;
+  document.getElementById("next").disabled = page >= pages - 1;
+  document.getElementById("page-label").textContent = `Page ${page + 1} of ${pages}`;
+}
+
+function changePage(delta) {
+  page += delta;
+  showPage();
+}
+
+async function loadVideos() {
+  const status = document.getElementById("videos-status");
+  const list = document.getElementById("videos");
+  try {
+    const response = await fetch("/videos");
+    if (!response.ok) throw new Error(`The video list failed (${response.status}).`);
+    const videos = await response.json();
+    if (videos.length === 0) {
+      status.textContent = "No videos have been added yet.";
+      return;
+    }
+    status.textContent = "";
+    for (const video of videos) {
+      videosById.set(video.video_id, video);
+      const item = videoRow(video);
+      videoItems.push(item);
+      list.append(item);
+    }
+    document.getElementById("pager").hidden = false;
+    showPage();
+  } catch (err) {
+    status.className = "error";
+    status.textContent = `Could not load the videos. ${err.message}`;
+  }
+}
+
+// The citation button: "▶ 0:51", opening the video at that moment.
+function citationLink(citation) {
+  const time = mmss(citation.start_seconds);
+  return el(
+    "a",
+    {
+      href: citation.url,
+      target: "_blank",
+      rel: "noopener",
+      className: "cite",
+      title: `Open the video at ${time}`,
+      "aria-label": `Watch from ${time}`,
+    },
+    `▶ ${time}`,
+  );
+}
+
+// Plain text with citations in it. Only numbers the server listed in
+// `citations` become buttons; any other [n] stays plain text.
+function citationNodes(text, byNumber) {
+  const nodes = [];
+  let last = 0;
+  for (const match of text.matchAll(CITATION_PATTERN)) {
+    nodes.push(document.createTextNode(text.slice(last, match.index)));
+    const citation = byNumber.get(Number(match[1]));
+    nodes.push(citation ? citationLink(citation) : document.createTextNode(match[0]));
+    last = match.index + match[0].length;
+  }
+  nodes.push(document.createTextNode(text.slice(last)));
+  return nodes;
+}
+
+// One line of text: **bold** becomes <strong>, and citations still work inside it.
+function inlineNodes(line, byNumber) {
+  const nodes = [];
+  let last = 0;
+  for (const match of line.matchAll(BOLD_PATTERN)) {
+    nodes.push(...citationNodes(line.slice(last, match.index), byNumber));
+    nodes.push(el("strong", {}, ...citationNodes(match[1], byNumber)));
+    last = match.index + match[0].length;
+  }
+  nodes.push(...citationNodes(line.slice(last), byNumber));
+  return nodes;
+}
+
+// The answer as paragraphs and bullet lists. A blank line starts a new
+// paragraph; a single newline inside a paragraph becomes a line break. Only
+// these built-in elements are made, and every string goes in as text.
+function answerBlocks(data) {
+  const byNumber = new Map(data.citations.map((c) => [c.number, c]));
+  const blocks = [];
+  let list = null;
+  let paragraph = null;
+  for (const raw of data.answer.split("\n")) {
+    const line = raw.trimEnd();
+    const bullet = line.match(BULLET_PATTERN);
+    if (bullet) {
+      if (!list) {
+        list = el("ul");
+        blocks.push(list);
+      }
+      list.append(el("li", {}, ...inlineNodes(bullet[1], byNumber)));
+      paragraph = null;
+      continue;
+    }
+    list = null;
+    if (line.trim() === "") {
+      paragraph = null;
+      continue;
+    }
+    if (!paragraph) {
+      paragraph = el("p");
+      blocks.push(paragraph);
+    } else {
+      paragraph.append(el("br"));
+    }
+    paragraph.append(...inlineNodes(line, byNumber));
+  }
+  return blocks;
+}
+
+// The line under the answer: which model answered, and how long it took.
+function answerMeta(data) {
+  const seconds = (data.latency_ms / 1000).toFixed(1);
+  const text = data.model
+    ? `Answered by ${data.model} in ${seconds} s`
+    : `Answered in ${seconds} s`;
+  return el("p", { className: "meta" }, text);
+}
+
+function errorMessage(status, data) {
+  // The server's own message (400, 404, 502) is written to be read by a person.
+  if (data && typeof data.detail === "string") return data.detail;
+  return `The server returned an error (${status}).`;
+}
+
+async function ask(event) {
+  event.preventDefault();
+  const status = document.getElementById("status");
+  const answer = document.getElementById("answer");
+  const button = document.getElementById("ask-button");
+  // Enter can submit while a question is already being answered; ignore it then.
+  if (button.disabled) return;
+  // The radio buttons are in #videos, outside the form, so search the whole
+  // page. Searching only inside the form found nothing and always said "Pick a video".
+  const picked = document.querySelector('input[name="video"]:checked');
+  const question = document.getElementById("question").value.trim();
+
+  if (!picked) {
+    status.className = "error";
+    status.textContent = "Pick a video first.";
+    return;
+  }
+  if (!question) {
+    status.className = "error";
+    status.textContent = "Type a question first.";
+    return;
+  }
+
+  // Loading state: the button stays disabled until the answer (or an error) arrives.
+  button.disabled = true;
+  button.textContent = "Thinking…";
+  status.className = "muted";
+  status.replaceChildren(
+    el("span", { className: "spinner", "aria-hidden": "true" }),
+    "Thinking… usually 4 to 30 seconds.",
+  );
+  answer.replaceChildren();
+
+  try {
+    let response;
+    try {
+      response = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video: picked.value, question }),
+      });
+    } catch {
+      throw new Error("Could not reach the server. It may be waking up; try again in a minute.");
+    }
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(errorMessage(response.status, data));
+
+    status.textContent = "";
+    answer.replaceChildren(el("div", { className: "answer-text" }, ...answerBlocks(data)), answerMeta(data));
+  } catch (err) {
+    status.className = "error";
+    status.textContent = err.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Ask";
+  }
+}
+
+document.getElementById("ask-form").addEventListener("submit", ask);
+
+// Enter asks the question; Shift+Enter starts a new line. Enter is left alone
+// while an input method is composing text (event.isComposing), so typing in
+// other scripts still works. Some browsers report keyCode 229 for the same thing.
+document.getElementById("question").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.shiftKey) return;
+  if (event.isComposing || event.keyCode === 229) return;
+  event.preventDefault();
+  document.getElementById("ask-form").requestSubmit();
+});
+document.getElementById("videos").addEventListener("change", (event) => {
+  if (event.target.name === "video") showChosen(event.target.value);
+});
+document.getElementById("prev").addEventListener("click", () => changePage(-1));
+document.getElementById("next").addEventListener("click", () => changePage(1));
+showChosen(null);
+loadVideos();
+</script>
+</body>
+</html>

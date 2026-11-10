@@ -4,9 +4,12 @@ import hmac
 import json
 import os
 import threading
+from datetime import datetime
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request, Response, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel , Field
 from app.chunking import store_chunks
 from app.youtube import ingest_video
@@ -76,6 +79,13 @@ LIVE_EMBED_TIMEOUT_S = 10.0
 
 app = FastAPI(title="YouTube Deep-Dive API", version="0.1.0")
 
+# The web page: one static HTML file, served from the same origin as the API,
+# so the browser needs no CORS. Resolved from this file, not the working
+# directory, so it works from the repo root and inside the container alike.
+# check_dir (the default) stops startup if the folder is missing.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/ui", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+
 
 # api_route rather than @app.get so this answers HEAD too. Render's platform
 # probe sends HEAD (a GET that returns headers without a body, which is why
@@ -83,7 +93,8 @@ app = FastAPI(title="YouTube Deep-Dive API", version="0.1.0")
 # noise that trains you to ignore your own logs.
 @app.api_route("/", methods=["GET", "HEAD"])
 def root():
-    return {"service": SERVICE_NAME, "docs": "/docs"}
+    # Stays JSON: Render's probe reads it. "ui" tells a person where the page is.
+    return {"service": SERVICE_NAME, "docs": "/docs", "ui": "/ui/"}
 
 
 @app.get("/health")
@@ -124,6 +135,72 @@ def ready(response: Response, session: Session = Depends(get_session)):
         # stdout where Render captures it; the caller gets a class name.
         print(f"readiness check failed: {exc!r}")
         return {"status": "not_ready", "database": type(exc).__name__}
+class VideoSummary(BaseModel):
+    """One row of GET /videos. Metadata only: never the transcript or chunk text.
+
+    `added_by` is 'captions', 'admin' or 'visitor'. `checked` is false for
+    visitor pastes, which the page labels "not checked".
+    """
+
+    video_id: str
+    title: str | None
+    duration_seconds: int | None
+    source: str
+    fetched_at: datetime
+    added_by: str
+    checked: bool
+
+
+LIST_LIMIT = 200
+
+# Only videos with chunks under the run /ask searches. A video added but not
+# chunked under this run would be listed and then answer 404, so the filter is
+# the same EXISTS test that /ask uses in _HAS_CHUNKS. Newest first. The LIMIT
+# is widened by the number of hidden ids, so hidden rows never take a place
+# from the 200 that are shown.
+_LIST_VIDEOS = text("""
+    SELECT v.video_id, v.title, v.duration_seconds, v.source, v.fetched_at, v.added_by
+    FROM videos AS v
+    WHERE EXISTS (
+        SELECT 1 FROM chunks AS c
+        WHERE c.video_id = v.video_id AND c.chunking_run = :run
+    )
+    ORDER BY v.fetched_at DESC
+    LIMIT :n
+""")
+
+
+@app.get("/videos", response_model=list[VideoSummary])
+def list_videos(session: Session = Depends(get_session)):
+    """List the videos that /ask can answer, newest first, at most 200.
+
+    A top-level array, because the page reads it as one. Hidden ids are removed
+    before the cap is applied. Titles are null until ingestion fills them; the
+    page shows the video id in the meantime.
+    """
+    run = chunking_run_label(DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP)
+    rows = session.execute(
+        _LIST_VIDEOS, {"run": run, "n": LIST_LIMIT + len(HIDDEN_IDS)}
+    ).mappings().all()
+    videos: list[VideoSummary] = []
+    for row in rows:
+        if row["video_id"] in HIDDEN_IDS:
+            continue
+        label = _added_by_label(row["source"], row["added_by"])
+        videos.append(VideoSummary(
+            video_id=row["video_id"],
+            title=row["title"],
+            duration_seconds=row["duration_seconds"],
+            source=row["source"],
+            fetched_at=row["fetched_at"],
+            added_by=label,
+            checked=label != "visitor",
+        ))
+        if len(videos) == LIST_LIMIT:
+            break
+    return videos
+
+
 class IngestRequest(BaseModel):
     """What the client sends to POST /videos.
 
@@ -426,34 +503,6 @@ async def paste_video(request: Request, session: Session = Depends(get_session))
     return JSONResponse(payload, status_code=code)
 
 
-@app.get("/videos")
-def list_videos(session: Session = Depends(get_session)):
-    """Added videos, newest first, for the page. Hidden ids are left out.
-
-    `checked` is false for visitor pastes, so the page can label them "not
-    checked". Returns ids and labels only, never transcript text. Capped at
-    200 videos.
-    """
-    rows = session.execute(
-        text("SELECT video_id, source, added_by, fetched_at FROM videos "
-             "ORDER BY fetched_at DESC LIMIT :n"),
-        {"n": 200 + len(HIDDEN_IDS)},
-    ).all()
-    videos = []
-    for row in rows:
-        if row.video_id in HIDDEN_IDS:
-            continue
-        added_by = _added_by_label(row.source, row.added_by)
-        videos.append({
-            "video_id": row.video_id,
-            "source": row.source,
-            "added_by": added_by,
-            "checked": added_by != "visitor",
-            "fetched_at": row.fetched_at.isoformat() if row.fetched_at else None,
-        })
-        if len(videos) == 200:
-            break
-    return {"videos": videos}
 
 
 @app.get("/videos/{video_id}")

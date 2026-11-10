@@ -5,6 +5,7 @@ job functions are patched in app.main. No Gemini, no network, no database.
 The token below is a dummy value that exists only in this file.
 """
 
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -36,9 +37,15 @@ def test_make_transcript_gives_exactly_the_requested_chunk_count():
         assert len(chunk_transcript(parse_paste(make_transcript(n)).snippets)) == n
 
 
+FETCHED_BASE = datetime(2026, 11, 1, 12, 0, tzinfo=timezone.utc)
+
+
 class _Rows:
     def __init__(self, rows):
         self._rows = rows
+
+    def mappings(self):
+        return self
 
     def all(self):
         return self._rows
@@ -53,18 +60,25 @@ class _Scalar:
 
 
 class FakeSession:
-    """Just enough session for the routes. Any other SQL fails the test."""
+    """Just enough session for the routes. Any other SQL fails the test.
+
+    The list query is answered the way the real one is: only videos with chunks
+    in the run it asks for, newest first, at most the LIMIT it is given.
+    """
 
     def __init__(self):
         self.videos = {}
         self.added = []
-        self.rows = []  # rows the GET /videos listing reads
+        self.chunked = set()  # video ids with chunks in fixed_1000_200
+        self._clock = 0
 
     def get(self, model, key):
         return self.videos.get(key)
 
     def add(self, obj):
         self.added.append(obj)
+        self._clock += 1
+        obj.fetched_at = FETCHED_BASE + timedelta(minutes=self._clock)
         self.videos[obj.video_id] = obj
 
     def commit(self):
@@ -78,8 +92,21 @@ class FakeSession:
         if "SELECT source FROM videos" in sql:
             video = self.videos.get(params["v"])
             return _Scalar(video.source if video is not None else None)
-        if "ORDER BY fetched_at DESC" in sql:
-            return _Rows(self.rows)
+        if "FROM videos AS v" in sql:
+            rows = [v for v in self.videos.values() if v.video_id in self.chunked]
+            rows.sort(key=lambda v: v.fetched_at, reverse=True)
+            rows = rows[: params["n"]]
+            return _Rows([
+                {
+                    "video_id": v.video_id,
+                    "title": v.title,
+                    "duration_seconds": v.duration_seconds,
+                    "source": v.source,
+                    "fetched_at": v.fetched_at,
+                    "added_by": v.added_by,
+                }
+                for v in rows
+            ])
         raise AssertionError(f"unexpected SQL in a route test: {sql[:60]}")
 
 
@@ -92,7 +119,7 @@ def env(monkeypatch):
     monkeypatch.setattr(main, "PUBLIC_DAILY_CHUNKS", 600)
     monkeypatch.setattr(main, "HIDDEN_IDS", frozenset())
     monkeypatch.setattr(main, "visitor_chunks_last_24h", lambda session: state["used"])
-    monkeypatch.setattr(main, "store_chunks", lambda session, video: [])
+    monkeypatch.setattr(main, "store_chunks", lambda session, video: session.chunked.add(video.video_id) or [])
     monkeypatch.setattr(
         main, "progress", lambda session, vid, run: (state["total"], state["embedded"])
     )
@@ -228,52 +255,93 @@ def test_the_daily_cap_is_read_from_the_database_count(env, monkeypatch):
 
 # --- limit 3: visitor pastes are marked, and listed as not checked ------------
 
-def test_the_list_marks_visitor_pastes_as_not_checked(env):
-    env.fake.rows = [
-        SimpleNamespace(video_id=VIDEO_ID, source="pasted", added_by="visitor", fetched_at=None),
-        SimpleNamespace(video_id=OTHER_ID, source="pasted", added_by="admin", fetched_at=None),
-        SimpleNamespace(video_id="BBBBBBBBBBB", source="captions", added_by=None, fetched_at=None),
-    ]
-    videos = {v["video_id"]: v for v in env.client.get("/videos").json()["videos"]}
-    assert videos[VIDEO_ID]["added_by"] == "visitor"
-    assert videos[VIDEO_ID]["checked"] is False
-    assert videos[OTHER_ID]["added_by"] == "admin"
-    assert videos[OTHER_ID]["checked"] is True
-    assert videos["BBBBBBBBBBB"]["added_by"] == "captions"
-    assert videos["BBBBBBBBBBB"]["checked"] is True
+def add_listed(fake, video_id, source="pasted", added_by="visitor"):
+    """A video with chunks in the run, so the real list query would return it."""
+    video = Video(video_id=video_id, title=None, source=source, added_by=added_by,
+                  raw_transcript=[], raw_paste=None, duration_seconds=None)
+    fake.add(video)
+    fake.chunked.add(video_id)
+    return video
+
+
+def test_the_list_is_a_top_level_array_with_the_page_fields_and_the_new_ones(env):
+    add_listed(env.fake, VIDEO_ID)
+    body = env.client.get("/videos").json()
+    assert isinstance(body, list)
+    assert set(body[0]) == {
+        "video_id", "title", "duration_seconds", "source", "fetched_at", "added_by", "checked",
+    }
+
+
+def test_a_pasted_video_appears_in_the_list(env):
+    assert post(env.client, good_body()).status_code == 202
+    ids = [v["video_id"] for v in env.client.get("/videos").json()]
+    assert VIDEO_ID in ids
+
+
+def test_a_visitor_paste_is_listed_first_and_marked_not_checked(env):
+    post(env.client, good_body())
+    first = env.client.get("/videos").json()[0]
+    assert first["video_id"] == VIDEO_ID
+    assert first["added_by"] == "visitor"
+    assert first["checked"] is False
+
+
+def test_admin_and_captions_videos_are_checked(env):
+    add_listed(env.fake, "AAAAAAAAAAA", added_by="admin")
+    add_listed(env.fake, "BBBBBBBBBBB", source="captions", added_by=None)
+    checked = {v["video_id"]: v["checked"] for v in env.client.get("/videos").json()}
+    assert checked == {"AAAAAAAAAAA": True, "BBBBBBBBBBB": True}
 
 
 def test_a_pasted_row_with_no_added_by_is_treated_as_not_checked(env):
-    env.fake.rows = [SimpleNamespace(video_id=VIDEO_ID, source="pasted", added_by=None, fetched_at=None)]
-    video = env.client.get("/videos").json()["videos"][0]
-    assert video["checked"] is False
+    add_listed(env.fake, VIDEO_ID, added_by=None)
+    assert env.client.get("/videos").json()[0]["checked"] is False
+
+
+def test_a_video_without_chunks_in_the_run_is_not_listed(env):
+    env.fake.add(Video(video_id=VIDEO_ID, title=None, source="pasted", added_by="visitor",
+                       raw_transcript=[], raw_paste=None, duration_seconds=None))
+    assert env.client.get("/videos").json() == []
 
 
 def test_the_list_never_contains_transcript_text(env):
     post(env.client, good_body())
-    env.fake.rows = [
-        SimpleNamespace(video_id=VIDEO_ID, source="pasted", added_by="visitor", fetched_at=None)
-    ]
     assert "made up words" not in env.client.get("/videos").text
 
 
-# --- limit 4: hidden videos ----------------------------------------------------
+def test_the_list_is_capped_at_200_newest_first(env):
+    for i in range(205):
+        add_listed(env.fake, f"V{i:010d}")
+    body = env.client.get("/videos").json()
+    assert len(body) == 200
+    assert body[0]["video_id"] == "V0000000204"
+
+
+def test_hidden_videos_are_removed_before_the_200_cap(env, monkeypatch):
+    hidden_ids = [f"H{i:010d}" for i in range(3)]
+    monkeypatch.setattr(main, "HIDDEN_IDS", frozenset(hidden_ids))
+    for i in range(202):
+        add_listed(env.fake, f"V{i:010d}")          # older
+    for hid in hidden_ids:
+        add_listed(env.fake, hid)                   # newest: they would take the first places
+    body = env.client.get("/videos").json()
+    ids = [v["video_id"] for v in body]
+    assert len(ids) == 200
+    assert not set(ids) & set(hidden_ids)
+    assert ids[0] == "V0000000201"
+
 
 @pytest.fixture
 def hidden(env, monkeypatch):
     monkeypatch.setattr(main, "HIDDEN_IDS", frozenset({VIDEO_ID}))
-    env.fake.rows = [
-        SimpleNamespace(video_id=VIDEO_ID, source="pasted", added_by="visitor", fetched_at=None),
-        SimpleNamespace(video_id=OTHER_ID, source="pasted", added_by="admin", fetched_at=None),
-    ]
-    env.fake.videos[VIDEO_ID] = Video(
-        video_id=VIDEO_ID, source="pasted", added_by="visitor", raw_transcript=[], raw_paste="x"
-    )
+    add_listed(env.fake, VIDEO_ID)
+    add_listed(env.fake, OTHER_ID, added_by="admin")
     return env
 
 
 def test_a_hidden_video_is_left_out_of_the_list(hidden):
-    ids = [v["video_id"] for v in hidden.client.get("/videos").json()["videos"]]
+    ids = [v["video_id"] for v in hidden.client.get("/videos").json()]
     assert VIDEO_ID not in ids
     assert OTHER_ID in ids
 
@@ -303,10 +371,11 @@ def test_a_hidden_video_cannot_be_pasted_again(hidden):
 
 def test_hiding_changes_no_chunk_and_deletes_nothing(hidden):
     before = dict(hidden.fake.videos)
+    added_before = len(hidden.fake.added)
     hidden.client.get(f"/videos/{VIDEO_ID}")
     hidden.client.get("/videos")
     assert dict(hidden.fake.videos) == before
-    assert hidden.fake.added == []
+    assert len(hidden.fake.added) == added_before
 
 
 # --- storing and resuming (unchanged behaviour) ------------------------------

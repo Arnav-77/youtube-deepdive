@@ -7,11 +7,17 @@ layer is broken.
 """
 
 import re
+from typing import NamedTuple
 
+import httpx
 from sqlalchemy.orm import Session
 from youtube_transcript_api import YouTubeTranscriptApi
 
 from app.models import Video
+
+# YouTube's public oEmbed endpoint: returns a video's title as JSON, no key.
+OEMBED_URL = "https://www.youtube.com/oembed"
+OEMBED_TIMEOUT_S = 5.0
 
 # Matches a YouTube video id: exactly 11 chars of letters, digits,
 # underscore and hyphen. YouTube ids are opaque strings, so we match on
@@ -78,6 +84,51 @@ def fetch_transcript(video_id: str) -> tuple[list[dict], str]:
     return transcript.to_raw_data(), "captions"
 
 
+class TitleLookup(NamedTuple):
+    """The outcome of one oEmbed lookup.
+
+    `status` says what happened, in a form a person can act on: "HTTP 404",
+    "ConnectError", "no title in response". It is "ok" when `title` is set.
+    """
+
+    title: str | None
+    status: str
+
+
+def lookup_title(video_id: str) -> TitleLookup:
+    """Ask YouTube's oEmbed endpoint for a video's title. Never raises.
+
+    A title is decoration: any failure (network, a private or deleted video,
+    an unexpected response) gives a None title and a status saying why. The
+    reason also goes to stdout, where Render's logs show it.
+    """
+    watch_url = f"https://www.youtube.com/watch?v={video_id}"
+    try:
+        response = httpx.get(
+            OEMBED_URL,
+            params={"url": watch_url, "format": "json"},
+            timeout=OEMBED_TIMEOUT_S,
+        )
+        if response.status_code != 200:
+            status = f"HTTP {response.status_code}"
+            print(f"title lookup for {video_id} returned {status}")
+            return TitleLookup(None, status)
+        title = response.json().get("title")
+    except Exception as exc:
+        status = type(exc).__name__
+        print(f"title lookup for {video_id} failed: {status}")
+        return TitleLookup(None, status)
+    if isinstance(title, str) and title.strip():
+        return TitleLookup(title.strip(), "ok")
+    print(f"title lookup for {video_id}: response had no title")
+    return TitleLookup(None, "no title in response")
+
+
+def fetch_title(video_id: str) -> str | None:
+    """The title alone, or None. Ingestion uses this; the backfill uses lookup_title."""
+    return lookup_title(video_id).title
+
+
 def ingest_video(session: Session, url_or_id: str, added_by: str | None = None) -> Video:
     """Fetch a video's transcript and store it. Returns the stored row.
 
@@ -98,6 +149,9 @@ def ingest_video(session: Session, url_or_id: str, added_by: str | None = None) 
 
     raw_transcript, source = fetch_transcript(video_id)
 
+    # Title from oEmbed. Never fails ingestion: fetch_title returns None on any error.
+    title = fetch_title(video_id)
+
     # Duration = where the last snippet ends. Approximate, because caption
     # timings don't necessarily run to the end of the video, but good
     # enough for "roughly how long is this" and it costs no extra API call.
@@ -108,10 +162,7 @@ def ingest_video(session: Session, url_or_id: str, added_by: str | None = None) 
 
     video = Video(
         video_id=video_id,
-        # Title is not available from the transcript API. Left null rather
-        # than pulling in another dependency to scrape it -- revisit if the
-        # frontend needs it.
-        title=None,
+        title=title,
         source=source,
         added_by=added_by,
         raw_transcript=raw_transcript,

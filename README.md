@@ -320,6 +320,8 @@ docker run --env-file .env -p 8000:8000 --cpus=0.1 --memory=512m deepdive
 |---|---|---|
 | GET | `/health` | Liveness. Touches no dependencies, returns the commit SHA. |
 | GET | `/ready` | Readiness. Checks the database. |
+| GET | `/videos` | List the videos `/ask` can answer, newest first. Metadata only, no transcript text. |
+| GET | `/ui/` | The web page: pick a video, ask a question, follow the links to the moment in the video. Served by the API itself, so no CORS. |
 | POST | `/videos` | Add a video: fetch transcript, chunk, embed, store. Repeating it finishes an interrupted embedding. |
 | POST | `/ask` | Ask a question about an added video. Returns 404 if the video has not been added. |
 | POST | `/videos/paste` | Add a video from a transcript pasted from YouTube's "Show transcript" panel. Public, limited to 150 chunks per paste and a daily cap across visitors (429 when reached). The admin token skips the limits. Returns 202 while embedding runs in the background; send the same request again to resume. |
@@ -349,6 +351,7 @@ nothing and drops in-flight requests.
 | `evaluation/run_eval.py` | Retrieval harness: Recall@k, MRR, citation offset |
 | `evaluation/explain_query.py` | How every chunk ranked for one question, and why |
 | `evaluation/embed_chunks.py` | Resumable embedding backfill for existing chunks |
+| `evaluation/backfill_titles.py` | Fills missing video titles from YouTube's oEmbed endpoint. Dry run unless `--write` |
 
 
 ## Running the tests
@@ -390,6 +393,23 @@ comparing two strategies a matter of changing one argument. `--method lexical`,
 `dense` or `hybrid` selects the retrieval method (default `lexical`, the
 original baseline). Question embeddings are cached, so repeat runs make no
 embedding calls.
+
+### Filling in video titles
+
+Titles come from YouTube's public oEmbed endpoint, at ingestion and from this
+script. A video whose lookup fails keeps a NULL title, and the page shows
+"Untitled video" in its place.
+
+```bash
+python evaluation/backfill_titles.py          # dry run: prints id and title, writes nothing
+python evaluation/backfill_titles.py --write  # writes titles to the database .env points at
+```
+
+Only videos with no title are looked up, one at a time, with a second's pause
+between requests. oEmbed is asked first. For a video it cannot title, add a line
+to `evaluation/video_titles.yaml` (`video_id: Title`), then run the script again.
+Each failure is printed with its HTTP status, or the error name when there was
+no response.
 
 ## Notes for contributors
 
