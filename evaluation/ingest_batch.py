@@ -9,7 +9,6 @@ of the transcript, so the language can be checked by eye rather than assumed.
 Nothing is written to the golden set here -- that stays a deliberate step.
 """
 
-import os
 import sys
 import time
 from pathlib import Path
@@ -18,16 +17,15 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dotenv import load_dotenv
+from paste_token import load_paste_token  # evaluation/ is sys.path[0] when run as a script
 
-load_dotenv(".env")
-
-# POST /videos is admin only (fails closed). The token comes from the
-# environment, never from this file. Checked before any request is sent.
-PASTE_TOKEN = os.environ.get("PASTE_TOKEN", "").strip()
+# POST /videos is admin only (fails closed). The token comes from the shell or
+# from .env (see evaluation/paste_token.py), never from this file. Checked
+# before any request is sent, and before app.db is imported.
+PASTE_TOKEN = load_paste_token()
 if not PASTE_TOKEN:
-    sys.exit("PASTE_TOKEN is not set. Export it in this shell, then run the script again. "
-             "No request was sent.")
+    sys.exit("PASTE_TOKEN is not set, in the shell or in .env. "
+             "Set it, then run the script again. No request was sent.")
 HEADERS = {"X-Paste-Token": PASTE_TOKEN}
 
 from app.db import SessionLocal
