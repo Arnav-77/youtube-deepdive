@@ -15,9 +15,15 @@ keeps what it found.
 """
 
 import argparse
+import sys
 import time
+from pathlib import Path
 
 from sqlalchemy import select
+
+# Running this file puts evaluation/ on sys.path, not the repo root, so `app`
+# is found only if the repo root is added here. Same line as the other scripts.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.db import SessionLocal
 from app.models import Video
