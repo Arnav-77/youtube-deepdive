@@ -290,3 +290,24 @@ def test_answer_not_in_golden_set_is_an_example_left_out_of_every_number(tmp_pat
     text = format_report(result, golden)
     assert "grounding rate, segments: 100% (1/1)" in text
     assert "left out of every number: 1" in text and "    example.json" in text
+
+
+def test_refusal_accuracy_is_not_measurable_without_a_negative_golden_question(tmp_path):
+    from evaluation.score_grounding import format_report
+    files = {"a.json": answer("Claim [1].", question="Answer near the start?")}
+    golden = {"videos": [{"video_id": "V", "questions": [
+        {"q": "Answer near the start?", "spans": [[20, 35]]}]}]}
+    result = run(tmp_path, files, [block("a.json", files["a.json"], False, ["supported"])],
+                 golden=golden)
+    text = format_report(result, golden)
+    assert "refusal accuracy: not measurable: 0 negative questions" in text
+    assert "refusal accuracy: 100%" not in text
+
+
+def test_refusal_accuracy_is_a_percentage_when_a_negative_golden_question_exists(tmp_path):
+    from evaluation.score_grounding import format_report
+    files = {"a.json": answer("Claim [1].", question="Answer near the start?")}
+    result = run(tmp_path, files, [block("a.json", files["a.json"], False, ["supported"])])
+    text = format_report(result, GOLDEN)
+    assert "refusal accuracy: 100% (1/1)" in text
+    assert "not measurable" not in text

@@ -226,7 +226,8 @@ def pct(part: int, whole: int) -> str:
     return f"{100 * part / whole:.0f}% ({part}/{whole})" if whole else "n/a (0 of 0)"
 
 
-def section(title: str, s: dict) -> list:
+def section(title: str, s: dict, golden_negatives: int) -> list:
+    """golden_negatives: golden questions whose gold spans are [] (not in the video)."""
     out = [f"== {title}: {s['answers']} labelled answers "
            f"(refused {s['refused']}, answered {s['answered']}) =="]
     out.append(f"  grounding rate, segments: {pct(s['supported'], s['segments'])}"
@@ -240,8 +241,14 @@ def section(title: str, s: dict) -> list:
     out.append(f"  answers citing excerpts never sent: {s['answers_citing_unsent']}"
                f" of {s['answered']} answered")
     rt = s["refusal"]
-    out.append(f"  refusal accuracy: {pct(rt['accurate'], rt['judged'])}"
-               f"  [{rt['judged']} answers matched to a golden question]")
+    if golden_negatives == 0:
+        # With no question whose answer is missing from the video, an app that always
+        # answers would score 100%. Say so instead of printing that number.
+        out.append("  refusal accuracy: not measurable: 0 negative questions "
+                   "(no golden question has spans: [])")
+    else:
+        out.append(f"  refusal accuracy: {pct(rt['accurate'], rt['judged'])}"
+                   f"  [{rt['judged']} answers matched to a golden question]")
     out.append(f"    correct refusals {rt['correct_refusal']}, "
                f"missed refusals {rt['missed_refusal']} (answered, gold span empty), "
                f"false refusals {rt['false_refusal']}")
@@ -254,10 +261,12 @@ def section(title: str, s: dict) -> list:
 def format_report(collected: Collected, golden: dict) -> str:
     gold = golden_lookup(golden)
     rows = collected.rows
-    lines = section("All models", summarise(rows))
+    negatives = sum(1 for spans in gold.values() if not spans)
+    lines = section("All models", summarise(rows), negatives)
     for model in sorted({r.model for r in rows}):
         lines.append("")
-        lines += section(f"model {model}", summarise([r for r in rows if r.model == model]))
+        lines += section(f"model {model}",
+                         summarise([r for r in rows if r.model == model]), negatives)
 
     saved_questions = {norm(a["question"]) for a in collected.saved.values()}
     labelled_questions = {norm(r.question) for r in rows if r.gold is not None}
