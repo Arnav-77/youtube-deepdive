@@ -9,6 +9,7 @@ of the transcript, so the language can be checked by eye rather than assumed.
 Nothing is written to the golden set here -- that stays a deliberate step.
 """
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -20,6 +21,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dotenv import load_dotenv
 
 load_dotenv(".env")
+
+# POST /videos is admin only (fails closed). The token comes from the
+# environment, never from this file. Checked before any request is sent.
+PASTE_TOKEN = os.environ.get("PASTE_TOKEN", "").strip()
+if not PASTE_TOKEN:
+    sys.exit("PASTE_TOKEN is not set. Export it in this shell, then run the script again. "
+             "No request was sent.")
+HEADERS = {"X-Paste-Token": PASTE_TOKEN}
 
 from app.db import SessionLocal
 from app.models import Video
@@ -43,7 +52,7 @@ print("-" * 110)
 
 for video_id, which_set, bucket, note in VIDEOS:
     try:
-        r = requests.post(API, json={"url": f"https://youtu.be/{video_id}"}, timeout=180)
+        r = requests.post(API, json={"url": f"https://youtu.be/{video_id}"}, headers=HEADERS, timeout=180)
     except Exception as exc:
         print(f"{video_id:<14}{which_set:<10}{bucket:<11}  REQUEST FAILED: {type(exc).__name__}")
         continue
