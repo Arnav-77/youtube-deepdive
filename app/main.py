@@ -43,6 +43,15 @@ if RETRIEVAL_METHOD not in {"dense", "lexical"}:
         f"RETRIEVAL_METHOD must be 'dense' or 'lexical', got {RETRIEVAL_METHOD!r}"
     )
 
+# Paste is an OPTIONAL feature, so a missing token does not stop the app: /ask
+# must still start. It fails closed instead: with no token, POST /videos/paste
+# answers 503 and accepts nothing. The token is never printed.
+PASTE_TOKEN = os.getenv("PASTE_TOKEN", "").strip()
+if PASTE_TOKEN:
+    print("paste: enabled, POST /videos/paste requires the X-Paste-Token header")
+else:
+    print("paste: disabled, PASTE_TOKEN is not set; POST /videos/paste returns 503")
+
 # On the request path the question's embedding gets one try with a short
 # timeout. The batch script can afford five patient retries; a person waiting
 # on /ask cannot, and word search is a working answer in the meantime.

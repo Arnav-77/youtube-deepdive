@@ -1,5 +1,50 @@
 # Design decisions
 
+## 10 Nov 2026: a missing PASTE_TOKEN disables paste without stopping the app (refines rule 7)
+
+**Decision.** Rule 7 says invalid configuration stops the app at startup. An unset PASTE_TOKEN is not invalid configuration; it is a missing optional feature. So the app starts, prints one line saying paste is disabled, and POST /videos/paste answers 503 "paste is disabled on this server" before it reads the body. The app still fails closed: with no token configured, no paste is accepted. A token that is set but wrong gets 401. The token value is never printed.
+
+**Why.** /ask must not stop because a feature it does not use is unconfigured. Stopping would take the whole live app down for a missing feature flag. Failing closed keeps the public endpoint from spending quota when nobody set a gate.
+
+**Alternatives considered.**
+- Stop at startup when PASTE_TOKEN is unset, like RETRIEVAL_METHOD. Rejected: it ties the availability of /ask to an optional feature.
+- Leave the route open when the token is unset. Rejected: a public quota drain and a way to attach wrong transcripts to real video ids.
+
+**Also decided.** The token is an environment variable only. It is never in the repo, in page code, in a query string, or in a log line. The web page asks the viewer to type it, sends it as the X-Paste-Token header, and keeps it in memory only.
+
+## 10 Nov 2026: pasted transcripts are embedded in a background thread, resumed by sending the same request again
+
+**Decision.** POST /videos/paste parses the paste, stores the video and its chunks, starts a daemon thread that embeds the missing chunks, and returns 202 at once. The thread opens its own database session. "Already running" is tracked in memory, so a second request does not start a duplicate run. Progress is read from the database by GET /videos/{id}. After a restart nothing runs by itself: sending the same paste (or the same URL) again embeds only the missing chunks. This assumes one worker process.
+
+**Why.** Embedding 300 chunks takes about three minutes; Render cuts requests at about 100 s. Progress lives in the database (embed_missing_chunks commits per batch), so a crash loses at most one batch of work and the restart story is "send it again", which needs no state beyond the database.
+
+**Alternatives considered.**
+- FastAPI BackgroundTasks. Rejected: they run with the request's session, which is closed once the response is sent. A thread with its own session is simpler to reason about.
+- A separate worker process or a queue. Rejected: a second process and a queue are new services and new memory on a 512 MB instance (rule 10).
+- Resume automatically at boot. Rejected for now: it spends free-tier quota with no request behind it. Revisit if restarts become frequent.
+
+**Also decided.** While a video is partly embedded, questions about it are answered from word search and logged as lexical_fallback:MissingEmbeddings. No question embedding is attempted, because dense_search checks for missing chunks first. This is tested.
+
+## 10 Nov 2026: the captions route POST /videos stays synchronous
+
+**Decision.** POST /videos (captions path) is unchanged and still embeds inside the request.
+
+**Why.** YouTube blocks transcript requests from Render, so this route only runs from the laptop, which has no 100 second limit.
+
+**Revisit when.** The captions path ever runs on the server. At that point, move it to the same background job as the paste route, in its own commit.
+
+## 10 Nov 2026: paste parsing limits, the 4.0 s final duration, and whole-second timestamps
+
+**Decision.** The parser (app/paste.py) refuses a transcript over 300 KB of UTF-8 bytes, over 5,000 segments, over 12 hours, with timestamps that go backwards, or with control characters (NUL included). The final segment gets a fixed 4.0 s duration, because the panel gives no end time. Timestamps are whole seconds, so citations land on the whole second. Pasted videos are never added to evaluation/golden_set.yaml, because their timings are coarser than the captions API's.
+
+**Why.** The paste is untrusted public input, so every limit is checked in code. A NUL would make Postgres reject the row, which would be a 500 from our code. Chunking reads only text and start, and the final duration is used only for the last snippet, so the 4.0 s estimate changes no chunk boundary.
+
+**Alternatives considered.**
+- Use the median gap between snippets for the last duration. Deferred: no evidence yet that it matters, and the estimate is only used for duration_seconds and the last chunk's end time.
+- Store only the parsed snippets, not the raw paste. Rejected: the raw text is what Arnav copied, and it is kept word for word in videos.raw_paste so a parser change can be re-run on the original.
+
+**Also decided.** Injection: the paste reaches the model only as excerpts, through the existing path. The model has no tools, render_prompt is single pass, and citations are checked in code. Accepted residue: a "[3]" typed into the transcript can be echoed by the model. The link still resolves to the number the code assigned, so no wrong link results. The future web page must render transcript text escaped, never as HTML.
+
 ## 4 Nov 2026: a citation at the start of an answer belongs to the claim after it, and non-golden answers are examples
 
 **Decision.** A citation run at the very start of an answer ("[1] The climber said X.") is held and attached to the next claim, so the claim is one segment cited 1. The segment is flagged `leads_with_citation`, and the scorer reports how many scored segments used the rule. A saved answer whose question is not in the golden set is listed as an example and left out of every rate, refusal result and segment count.
