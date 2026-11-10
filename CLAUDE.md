@@ -16,6 +16,9 @@ Conversational RAG over YouTube transcripts. Every claim in an answer links to t
 | run.py | Starts uvicorn on PORT (Render sets it) |
 | app/main.py | Endpoints /health, /ready, /videos, /ask; 404 check; citations; request log |
 | app/youtube.py | Video id parsing, caption fetch, ingest_video |
+| app/paste.py | Parse a pasted YouTube transcript panel into caption-shaped snippets; size and shape limits; read_limited (pure) |
+| app/jobs.py | Background embedding for one video at a time (resumable by resending); progress counts; derive_status (pure) |
+| app/limits.py | Public paste limits (150 chunks per paste, daily cap); HIDDEN_VIDEO_IDS and PUBLIC_PASTE_DAILY_CHUNKS parsing (pure) |
 | app/chunking.py | chunk_transcript (pure), store_chunks (append only) |
 | app/embeddings.py | Embedding calls, pacing, query_embeddings cache |
 | app/retrieval.py | dense_search (live), search (word search fallback), hybrid_search (tested, not live) |
