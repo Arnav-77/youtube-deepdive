@@ -1,5 +1,20 @@
 # Design decisions
 
+## 10 Nov 2026: the web page is one static file served by the API, at /ui/
+
+**Decision.** The web page is one HTML file (`app/static/index.html`, inline CSS and JS, no build step) served by FastAPI at `/ui/` from the same origin as the API. It uses two endpoints: `GET /videos` to list the videos `/ask` can answer, and `POST /ask`. Each video shows a YouTube thumbnail, loaded by the visitor's browser, next to its id. `GET /` stays JSON for Render's probe and now includes `"ui": "/ui/"`. The branch's commits do not use `[skip render]`, because Render deploys the newest pushed commit and a skip would leave the page undeployed.
+
+**Why.** The page is a simple form and a list. A second service adds a deploy to keep in step, a hosted account, CORS rules, and a framework. The viva rule ("explain every line without notes") and the time left before 23 Nov both count against that. The static file adds about 0 MB to the server, needs no new package, and is one deploy. Thumbnails come from the visitor's browser, so the server makes no request to YouTube and no server change is needed.
+
+**Alternatives considered.**
+- Next.js on Vercel. Rejected for now: the first page load would be instant, but that is the only gain. It adds a hosted service (CLAUDE.md asks first), a second deploy, CORS, and React, which the author has not yet learned. Revisit only if the cold start after Render's 15-minute sleep is a real problem in production, measured there.
+- Fetching titles at ingestion (YouTube oEmbed) or backfilling the 23 existing rows. Rejected for now: oEmbed adds an outbound request from Render, which YouTube already blocks for transcripts, and the backfill writes to the production `videos` table. The list shows the video id until titles are decided separately.
+- A `<select>` dropdown. Rejected: it cannot show thumbnails.
+- Serving the page from `/` instead of `/ui/`. Rejected: `/` must answer Render's HEAD probe with the JSON it already returns.
+- Building the page with `innerHTML`. Rejected: model output is untrusted text. The page builds elements with `createElement` and `textContent`, and a test fails if the code sets `innerHTML`.
+
+**Consequences.** The page's JavaScript is not run by the tests, which check the file's text only; it is checked by hand in a browser. The first visit after Render's sleep waits for the service to wake. The `videos` listing filter is checked by hand on the dev branch, not in tests.
+
 ## 4 Nov 2026: a citation at the start of an answer belongs to the claim after it, and non-golden answers are examples
 
 **Decision.** A citation run at the very start of an answer ("[1] The climber said X.") is held and attached to the next claim, so the claim is one segment cited 1. The segment is flagged `leads_with_citation`, and the scorer reports how many scored segments used the rule. A saved answer whose question is not in the golden set is listed as an example and left out of every rate, refusal result and segment count.
