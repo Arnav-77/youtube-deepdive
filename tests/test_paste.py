@@ -240,21 +240,90 @@ def test_same_line_layout_timestamp_then_words():
     ]
 
 
-def test_digits_glued_to_the_seconds_are_a_fraction_of_a_second():
-    # "0:045" is 4.5 s; "10:2345" is 23.45 s.
-    parsed = parse_paste("0:045 one\n10:2345 two\n")
-    assert [s["start"] for s in parsed.snippets] == [4.5, 623.45]
+def _one(text):
+    parsed = parse_paste(text)
+    assert len(parsed.snippets) == 1
+    s0 = parsed.snippets[0]
+    return s0["start"], s0["text"]
 
 
-def test_fraction_keeps_the_ordering_check_honest():
-    # 4.5 then 4.4 goes backwards even though the whole seconds are equal.
-    with pytest.raises(PasteError, match="backwards"):
-        parse_paste("0:045 one\n0:044 two\n")
+# The panel writes the time again in words, glued to the timestamp. Built from
+# the digits, so the form is checked exactly, and removed only when it matches.
+
+def test_two_part_spelled_time_with_seconds_word_is_removed():
+    assert _one("2:422 minutes, 42 seconds alpha words\n") == (162.0, "alpha words")
 
 
-def test_fractional_durations_run_to_the_next_start():
+def test_two_part_spelled_time_without_seconds_word_is_removed():
+    # The form most of the sample uses: the seconds digits, then speech.
+    assert _one("2:422 minutes, 42 alpha words\n") == (162.0, "alpha words")
+
+
+def test_singular_minute_and_second_are_read_as_singular():
+    assert _one("1:051 minute, 5 seconds alpha\n") == (65.0, "alpha")
+
+
+def test_singular_second_under_a_minute():
+    assert _one("0:011 second alpha\n") == (1.0, "alpha")
+
+
+def test_minutes_only_form_for_a_time_with_no_seconds_part():
+    assert _one("10:0010 minutes alpha\n") == (600.0, "alpha")
+
+
+def test_speech_may_follow_a_unit_word_with_no_space():
+    assert _one("10:0010 minutesalpha\n") == (600.0, "alpha")
+
+
+def test_under_a_minute_form_with_the_unit_word():
+    assert _one("0:044 seconds alpha\n") == (4.0, "alpha")
+
+
+def test_under_a_minute_form_with_the_seconds_digits_alone():
+    assert _one("0:044 alpha\n") == (4.0, "alpha")
+
+
+def test_speech_may_start_with_a_number_after_the_glued_form():
+    # The spelled form is removed; the speech's own "5 minutes" is kept.
+    assert _one("0:044 5 minutes later we\n") == (4.0, "5 minutes later we")
+
+
+def test_speech_may_start_with_a_number_directly_after_seconds():
+    assert _one("0:044 seconds10 items\n") == (4.0, "10 items")
+
+
+def test_speech_starting_with_a_number_is_kept_when_there_is_no_spelled_form():
+    # No glued text here: the space after the timestamp means it is speech.
+    assert _one("5:00 5 minutes later we\n") == (300.0, "5 minutes later we")
+
+
+def test_a_spelled_form_is_removed_once_and_the_same_speech_survives():
+    assert _one("5:005 minutes 5 minutes later we\n") == (300.0, "5 minutes later we")
+
+
+def test_glued_digits_that_are_not_the_spelled_time_are_kept_as_speech():
+    # Never read as a fraction: the start stays a whole second.
+    assert _one("0:041 alpha\n") == (4.0, "1 alpha")
+
+
+def test_a_bare_number_glued_to_more_digits_is_not_the_spelled_form():
+    # "4" followed by "5" is the number 45, not the form "4" then speech.
+    assert _one("0:0445 alpha\n") == (4.0, "45 alpha")
+
+
+def test_timestamps_followed_by_words_with_no_spelled_form_are_unchanged():
+    assert _one("0:04 words\n") == (4.0, "words")
+    assert _one("2:42 alpha words\n") == (162.0, "alpha words")
+
+
+def test_no_timestamp_is_ever_a_fraction_of_a_second():
+    parsed = parse_paste("0:045 one\n0:096 two\n10:2310 three\n")
+    assert all(s["start"] == int(s["start"]) for s in parsed.snippets)
+
+
+def test_durations_run_to_the_next_whole_second():
     parsed = parse_paste("0:045 a\n0:096 b\n")
-    assert parsed.snippets[0]["duration"] == pytest.approx(5.1)
+    assert parsed.snippets[0]["duration"] == pytest.approx(5.0)
 
 
 def test_chapter_titles_are_skipped_and_counted_not_merged_into_speech():
@@ -272,9 +341,10 @@ def test_both_layouts_can_appear_in_one_paste():
     assert [s["text"] for s in parsed.snippets] == ["own line words", "same line words"]
 
 
-def test_hours_with_fraction_parses():
-    parsed = parse_paste("1:02:33 late words\n")
-    assert parsed.snippets[0]["start"] == 3753.0
+def test_hours_form_is_a_whole_second_and_nothing_is_removed():
+    # No spelled form is removed for h:mm:ss (none in the sample to check),
+    # so glued digits stay as speech.
+    assert _one("1:02:331 alpha\n") == (3753.0, "1 alpha")
 
 
 # --- the real panel layout, made-up words, the cases that matter --------------
@@ -339,19 +409,29 @@ LOCAL_SAMPLE = Path(__file__).with_name("local_sample_paste.txt")
 
 @pytest.mark.skipif(not LOCAL_SAMPLE.exists(), reason="no local sample paste on this machine")
 def test_real_copied_transcript_parses_and_chunks():
-    # Asserts shape only, never prints transcript text: the file is private.
+    # Asserts shape and counts only, never prints transcript text: the file is private.
     text = LOCAL_SAMPLE.read_text(encoding="utf-8")
     parsed = parse_paste(text)
+    segments = parsed.snippets
+    starts = [s["start"] for s in segments]
 
-    assert len(parsed.snippets) > 0
-    starts = [s["start"] for s in parsed.snippets]
-    assert starts == sorted(starts)
-    assert all(s["text"] for s in parsed.snippets)
-    assert all(s["duration"] >= 0 for s in parsed.snippets)
-    assert chunk_transcript(parsed.snippets)
-    # Forward-only, and the panel runs to about 17 minutes: the last cue must
-    # start after 16:00 (the panel runs to about 17 minutes).
-    assert starts[-1] >= 16 * 60
+    assert len(segments) == 133
+    assert all(x == int(x) for x in starts), "every start is a whole second"
+    assert starts[-1] == 1026.0, "the last cue starts at 17:06"
+    assert all(b > a for a, b in zip(starts, starts[1:])), "strictly forward"
+    assert all(s["text"] for s in segments)
+    assert not [s for s in segments if s["text"].lower().startswith(("minute", "second"))]
+    assert chunk_transcript(segments)
+
+
+@pytest.mark.skipif(not LOCAL_SAMPLE.exists(), reason="no local sample paste on this machine")
+def test_real_copied_transcript_digit_starts_are_only_known_speech():
+    # Every timestamp's own spelled form is removed. One segment, at 13:08, still
+    # starts with digits: speech that follows "seconds" with no space. It is
+    # kept until the owner confirms it is speech, not a leftover.
+    segments = parse_paste(LOCAL_SAMPLE.read_text(encoding="utf-8")).snippets
+    digit_starts = [s["start"] for s in segments if s["text"][:1].isdigit()]
+    assert digit_starts == [788.0]
 
 
 # --- unreadable lines joined into one long segment --------------------------

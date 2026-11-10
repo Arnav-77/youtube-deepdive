@@ -43,22 +43,79 @@ MAX_VIDEO_SECONDS = 12 * 3600
 # approximate for pasted videos.
 LAST_SNIPPET_SECONDS = 4.0
 
-# Two layouts are accepted, because the panel has shown both.
+# A timestamp is h:mm:ss (minutes 00-59) or m:ss (minutes up to 3 digits: the
+# panel shows "75:30" for a 75 minute video). Seconds are always two digits,
+# 00-59, and must be followed by whitespace, by more digits, or by the end of
+# the line. Everything after the seconds is kept in the "rest" group.
 #
-#   Own line:   "1:02:33" alone on a line, words on the next line(s).
-#   Same line:  "0:04 words" or, in the copy checked on 10 Nov, "0:045 words".
+# The panel also writes the time again in words, GLUED to the timestamp with no
+# space: "2:42" is followed by "2 minutes, 42 seconds" and so reads "2:422
+# minutes, 42 ...". That spelled-out time is removed by _strip_spelled, and only
+# when it matches the timestamp's own digits exactly. Digits are never read as a
+# fraction of a second: every start is a whole second.
 #
-# The timestamp is h:mm:ss (minutes 00-59) or m:ss (minutes up to 3 digits:
-# the panel shows "75:30" for a 75 minute video). Seconds are 00-59. Digits
-# glued directly onto the seconds are FRACTIONAL seconds: "0:045" is 4.5 s and
-# "10:2345" is 23.45 s. Measured on the 10 Nov sample: the fraction has one or
-# two digits, and with it the timestamps only ever go forward.
-#
-# Groups: 1 hours, 2 minutes after hours, 3 minutes, 4 seconds, 5 fraction
-# digits, 6 same-line words.
+# Groups: 1 hours, 2 minutes after hours, 3 minutes (m:ss), 4 seconds, 5 rest.
 _TIMESTAMP = re.compile(
-    r"^\s*(?:(\d{1,2}):([0-5]\d)|(\d{1,3})):([0-5]\d)(\d*)(?:\s+(.*?))?\s*$"
+    r"^\s*(?:(\d{1,2}):([0-5]\d)|(\d{1,3})):([0-5]\d)(?=\s|\d|$)(.*?)\s*$"
 )
+
+
+def _spelled_candidates(minutes: int, seconds: int) -> list[tuple[str, bool]]:
+    """The spelled-out forms the panel may write, built from the timestamp's digits.
+
+    Each is (text, ends_with_unit). Longest first, so "2 minutes, 42 seconds" is
+    tried before "2 minutes, 42". "1" takes the singular unit. A form with no
+    minutes is the under-a-minute form, which the panel writes as the seconds
+    digits alone (with or without the unit word).
+    """
+    minute_word = "minute" if minutes == 1 else "minutes"
+    second_word = "second" if seconds == 1 else "seconds"
+    if minutes and seconds:
+        return [
+            (f"{minutes} {minute_word}, {seconds} {second_word}", True),
+            (f"{minutes} {minute_word}, {seconds}", False),
+        ]
+    if minutes:
+        return [(f"{minutes} {minute_word}", True)]
+    return [(f"{seconds} {second_word}", True), (f"{seconds}", False)]
+
+
+def _strip_spelled(minutes: int, seconds: int, rest: str) -> str:
+    """Remove the spelled-out time glued to a timestamp, if it is exactly that.
+
+    Only text that starts right after the timestamp, with no space, is a
+    candidate. The match is case-insensitive. A form ending in a bare number
+    must not be followed by a digit (that would make a longer number). After a
+    unit word the speech may follow at once, letters or digits, because the
+    panel sometimes writes it straight on with no space. Anything that does not match is returned unchanged: it is speech,
+    and it is never read as a number.
+    """
+    if not rest or rest[0].isspace():
+        return rest.lstrip()
+    for candidate, ends_with_unit in _spelled_candidates(minutes, seconds):
+        head = rest[: len(candidate)]
+        if head.lower() == candidate.lower():
+            after = rest[len(candidate):]
+            # A bare number must not be followed by a digit: that would be a longer
+            # number. After a unit word, speech may start at once, digits included.
+            if ends_with_unit or not after[:1].isdigit():
+                return after.lstrip()
+    return rest
+
+
+def _read_timestamp(match: re.Match) -> tuple[float, str]:
+    """(start in whole seconds, the words after the timestamp with any glued spelled time removed)."""
+    hours, minutes_in_hours, minutes_only, seconds_text, rest = match.groups()
+    seconds = int(seconds_text)
+    if hours is not None:
+        # The panel's spelled form for h:mm:ss has no sample to check against,
+        # so nothing is removed here. The rest stays as written, digits included.
+        start = int(hours) * 3600 + int(minutes_in_hours) * 60 + seconds
+        return float(start), rest.lstrip()
+    minutes = int(minutes_only)
+    start = minutes * 60 + seconds
+    return float(start), _strip_spelled(minutes, seconds, rest)
+
 
 # Chapter titles in the panel, e.g. "Chapter 2: Something". Not speech; skipped.
 _CHAPTER = re.compile(r"^\s*Chapter\s+\d+\s*:")
@@ -87,17 +144,6 @@ def _check_characters(text: str) -> None:
             raise PasteError("the transcript contains a control character")
 
 
-def _timestamp_seconds(match: re.Match) -> float:
-    hours_or_none, minutes_in_hours, minutes_only, seconds, fraction, _ = match.groups()
-    if hours_or_none is not None:
-        whole = int(hours_or_none) * 3600 + int(minutes_in_hours) * 60 + int(seconds)
-    else:
-        whole = int(minutes_only) * 60 + int(seconds)
-    if not fraction:
-        return float(whole)
-    return whole + int(fraction) / 10 ** len(fraction)
-
-
 def parse_paste(text: str) -> ParsedPaste:
     """Parse the copied panel text into caption-shaped snippets.
 
@@ -123,7 +169,8 @@ def parse_paste(text: str) -> ParsedPaste:
             continue
         match = _TIMESTAMP.match(line)
         if match:
-            segments.append([_timestamp_seconds(match), [match.group(6) or ""]])
+            start, words = _read_timestamp(match)
+            segments.append([start, [words]])
             continue
         if not segments:
             # Before any timestamp: panel headings such as "Show transcript".

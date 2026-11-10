@@ -6,11 +6,25 @@
 
 **Why.** The caller needs one status family for every input problem (rule 6), and "200 means done" is what a person checking progress expects. Counts only means the progress route cannot leak transcript text.
 
-**The panel's real layout (checked 10 Nov on a real copy, by shape only).** The copy puts each timestamp and its words on one line, with fractional seconds glued to the seconds ("0:045" is 4.5 s), and it includes "Chapter N:" title lines. The first version of the parser assumed the timestamp sat alone on its own line and rejected the real copy. The parser now accepts both layouts. On the sample: 133 segments, first 0:00, last 17:06, timestamps never go backwards.
+**The panel's real layout (checked 10 Nov on a real copy, by shape only).** The copy puts each timestamp and its words on one line, with the time written again in words glued to the timestamp ("2:42" followed by "2 minutes, 42 ..."), and it includes "Chapter N:" title lines. [CORRECTED on 10 Nov, see the entry above: the glued digits were not fractions.] The first version of the parser assumed the timestamp sat alone on its own line and rejected the real copy. The parser now accepts both layouts. On the sample: 133 segments, first 0:00, last 17:06, timestamps never go backwards.
 
 **Alternatives considered.**
 - 413 for an oversized body. Rejected: rule 6 says 422 for invalid input, and one family is easier to explain.
 - Keep the progress route behind the token. Rejected: it is needed after a paste, and it carries no transcript text.
+
+## 10 Nov 2026: glued digits are spelled-out time, not fractions; every start is a whole second
+
+**Decision.** After an m:ss or h:mm:ss timestamp, the parser builds the spelled-out time from the timestamp's own digits ("2 minutes, 42", "2 minutes, 42 seconds", "1 minute, 5 seconds", "10 minutes", and under a minute the seconds digits alone, with or without "seconds"). It removes that form from the start of the words only when the text there matches exactly, case-insensitively. A form ending in a bare number must not be followed by a digit. A form ending in a unit word may be followed directly by speech, letters or digits. Nothing else is removed, and the spelled part is never parsed on its own. Digits are never read as a fraction, so every start is a whole second.
+
+**Why.** The first reading treated the glued digits as tenths or hundredths of a second. Checked against the 10 Nov sample by counts and masked shapes: the glued digit is the minutes count, and the number after "minutes," is the seconds count, in all 121 minute-led lines. The fraction reading was a misreading, so the starts were wrong by up to 0.9 s and the spelled words stayed in the transcript text.
+
+**Alternatives considered.**
+- Parse the spelled time on its own. Rejected: it would also read speech such as "5 minutes later" as a time.
+- Keep the fraction reading and only strip the words. Rejected: the digits are not a fraction, and a same-second pair would then look out of order.
+
+**Still open.** One segment, at 13:08, starts with digits after the removed form: "13 minutes, 10…" directly after "seconds". It is kept as speech. Arnav to confirm it is speech and not a leftover.
+
+**Also decided.** Hours (h:mm:ss) have no spelled form in the sample, so nothing is removed there; digits after an hours timestamp stay as speech.
 
 ## 10 Nov 2026: a paste whose segments run past 1,000 characters is refused as missing timestamps
 
