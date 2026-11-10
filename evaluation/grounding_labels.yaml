@@ -49,3 +49,301 @@ answers:
         hash: "1abeda7cd95f"
         label: supported
         note:
+  - answer_file: "row33.json"
+    question: "how to be consistent"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: []
+        hash: "012af960cf30"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row34.json"
+    question: "What should I do the moment I notice I've got distracted?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "578dbb3fd496"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row35.json"
+    question: "What is the second habit talked about in this video?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [2]
+        hash: "3550e503f2ab"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row36.json"
+    question: "What is the first energy habit talked about?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1, 4]
+        hash: "12117a907f94"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1, 4]
+        hash: "a9c03ef61892"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row37.json"
+    question: "what is the markov property"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.5-flash-lite"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "7ae3a263e911"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1]
+        hash: "2ee36bafc775"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row38.json"
+    question: "what does the restaurant example show"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "a08123951e08"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [4]
+        hash: "89b26924c12b"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 2
+        cited: [2]
+        hash: "3e0d8e14d096"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row39.json"
+    question: "how do you calculate the probability of the next day"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [3]
+        hash: "d9fbbce02ea7"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1, 4]
+        hash: "0854c04f7b54"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row40.json"
+    question: "does what happened yesterday matter for tomorrow"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [2]
+        hash: "1b4c72a3ed6c"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [2, 4]
+        hash: "c67d0aadae0b"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row41.json"
+    question: "What is supervised learning?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [4]
+        hash: "35fa07763717"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1, 4]
+        hash: "21c11de43cea"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 2
+        cited: [2, 5]
+        hash: "20a9bf49c5a7"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 3
+        cited: [2, 3]
+        hash: "c06ecdf73210"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row42.json"
+    question: "How does a model get trained on data where every example comes with the correct answer?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "b9c2690399f2"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1, 2]
+        hash: "641ab5b642a4"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row43.json"
+    question: "What is linear regression?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "a44226bdb5fe"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1]
+        hash: "54c35f99f091"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 2
+        cited: [1]
+        hash: "a9ebbe97df26"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 3
+        cited: [1, 3]
+        hash: "495340fc6c0e"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row44.json"
+    question: "What are neural networks?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.5-flash-lite"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [4]
+        hash: "735fdfb6e6ef"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [4]
+        hash: "3cd63cb863e1"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 2
+        cited: [3]
+        hash: "cd050059f4c9"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row45.json"
+    question: "what are the different categories of machine learning"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.5-flash-lite"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "7349984c562f"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row46.json"
+    question: "why do we need a confusion matrix in the first place?"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1, 5]
+        hash: "3b2587177541"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1]
+        hash: "cea9c7d75ddf"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 2
+        cited: [2, 3]
+        hash: "a5a4eaf6ec50"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 3
+        cited: [2]
+        hash: "e12ed7ec292f"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row47.json"
+    question: "what is sklearn?"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.5-flash-lite"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "fea69d66fd0f"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row48.json"
+    question: "what the hell is knn?"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1, 3]
+        hash: "9320c0ff599b"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 1
+        cited: [1, 3]
+        hash: "3fd6903ba929"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+      - index: 2
+        cited: [1, 3, 4]
+        hash: "2041d559912a"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row49.json"
+    question: "when do we know knn is to be used"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.5-flash-lite"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "60c1f48366cb"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
+  - answer_file: "row50.json"
+    question: "what is the distance formula used in the algorithm"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.6-flash"
+    refused:   # true | false, by hand
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "9fec1a9310d7"
+        label:   # supported | partly | unsupported, by hand
+        note:    # optional; "support found in [n]" for a link cited elsewhere
