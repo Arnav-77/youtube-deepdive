@@ -99,6 +99,30 @@ def test_card_titles_are_at_most_two_lines_with_an_ellipsis(page_html):
     assert "overflow: hidden;" in page_html
 
 
+def test_answer_shows_only_bold_bullets_and_line_breaks(page_html):
+    # The page builds these elements and nothing else for the answer.
+    assert 'el("strong", {}' in page_html          # **bold**
+    assert 'el("ul")' in page_html                 # bullet list
+    assert 'el("li", {}' in page_html              # each bullet
+    assert 'el("br")' in page_html                 # line break inside a paragraph
+    assert 'el("p")' in page_html                  # paragraph
+    # The two patterns: **bold**, and "* " or "- " at the start of a line.
+    assert r"/\*\*(.+?)\*\*/g" in page_html
+    assert r"/^\s*[*-]\s+(.*)$/" in page_html
+
+
+def test_citations_still_work_inside_bold_and_list_items(page_html):
+    assert "citationNodes(match[1], byNumber)" in page_html   # inside **bold**
+    assert "inlineNodes(bullet[1], byNumber)" in page_html    # inside a bullet
+    assert "inlineNodes(line, byNumber)" in page_html         # inside a paragraph
+
+
+def test_model_text_never_sets_a_link_target_or_markup(page_html):
+    # Links come only from the server's citation URLs, never from answer text.
+    assert "href: citation.url" in page_html
+    assert "renderAnswer" not in page_html  # the old, text-only renderer is gone
+
+
 def test_thumbnails_load_lazily(page_html):
     assert 'loading: "lazy"' in page_html
 
