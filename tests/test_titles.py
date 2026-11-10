@@ -101,6 +101,36 @@ def test_missing_or_blank_title_gives_none(monkeypatch, payload):
     assert fetch_title(VIDEO_ID) is None
 
 
+# --- lookup_title: the status says why a lookup failed ----------------------
+
+
+def test_lookup_reports_ok_and_the_title(monkeypatch):
+    monkeypatch.setattr(
+        youtube.httpx, "get", _fake_get(_FakeResponse(payload={"title": "A title"}))
+    )
+    assert youtube.lookup_title(VIDEO_ID) == youtube.TitleLookup("A title", "ok")
+
+
+@pytest.mark.parametrize("status", [401, 404])
+def test_lookup_reports_the_http_status(monkeypatch, status):
+    monkeypatch.setattr(youtube.httpx, "get", _fake_get(_FakeResponse(status_code=status)))
+    assert youtube.lookup_title(VIDEO_ID) == youtube.TitleLookup(None, f"HTTP {status}")
+
+
+def test_lookup_reports_the_exception_name_when_there_is_no_http_status(monkeypatch):
+    monkeypatch.setattr(
+        youtube.httpx, "get", _fake_get(error=httpx.ConnectError("refused"))
+    )
+    assert youtube.lookup_title(VIDEO_ID) == youtube.TitleLookup(None, "ConnectError")
+
+
+def test_lookup_reports_a_response_without_a_title(monkeypatch):
+    monkeypatch.setattr(youtube.httpx, "get", _fake_get(_FakeResponse(payload={})))
+    assert youtube.lookup_title(VIDEO_ID) == youtube.TitleLookup(
+        None, "no title in response"
+    )
+
+
 # --- ingest_video ----------------------------------------------------------
 
 

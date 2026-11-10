@@ -391,7 +391,8 @@ embedding calls.
 ### Filling in video titles
 
 Titles come from YouTube's public oEmbed endpoint, at ingestion and from this
-script. A video whose lookup fails keeps a NULL title, and the page shows its id.
+script. A video whose lookup fails keeps a NULL title, and the page shows
+"Untitled video" in its place.
 
 ```bash
 python evaluation/backfill_titles.py          # dry run: prints id and title, writes nothing
@@ -399,7 +400,10 @@ python evaluation/backfill_titles.py --write  # writes titles to the database .e
 ```
 
 Only videos with no title are looked up, one at a time, with a second's pause
-between requests.
+between requests. oEmbed is asked first. For a video it cannot title, add a line
+to `evaluation/video_titles.yaml` (`video_id: Title`), then run the script again.
+Each failure is printed with its HTTP status, or the error name when there was
+no response.
 
 ## Notes for contributors
 

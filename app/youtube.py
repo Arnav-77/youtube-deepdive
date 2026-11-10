@@ -7,6 +7,7 @@ layer is broken.
 """
 
 import re
+from typing import NamedTuple
 
 import httpx
 from sqlalchemy.orm import Session
@@ -83,13 +84,23 @@ def fetch_transcript(video_id: str) -> tuple[list[dict], str]:
     return transcript.to_raw_data(), "captions"
 
 
-def fetch_title(video_id: str) -> str | None:
-    """Return the video's title from YouTube's oEmbed endpoint, or None.
+class TitleLookup(NamedTuple):
+    """The outcome of one oEmbed lookup.
 
-    Never raises. A title is decoration: if the lookup fails for any reason
-    (network, a private or deleted video, an unexpected response), the caller
-    keeps the title NULL and carries on. The reason goes to stdout, where
-    Render's logs and the backfill script both show it.
+    `status` says what happened, in a form a person can act on: "HTTP 404",
+    "ConnectError", "no title in response". It is "ok" when `title` is set.
+    """
+
+    title: str | None
+    status: str
+
+
+def lookup_title(video_id: str) -> TitleLookup:
+    """Ask YouTube's oEmbed endpoint for a video's title. Never raises.
+
+    A title is decoration: any failure (network, a private or deleted video,
+    an unexpected response) gives a None title and a status saying why. The
+    reason also goes to stdout, where Render's logs show it.
     """
     watch_url = f"https://www.youtube.com/watch?v={video_id}"
     try:
@@ -99,13 +110,23 @@ def fetch_title(video_id: str) -> str | None:
             timeout=OEMBED_TIMEOUT_S,
         )
         if response.status_code != 200:
-            print(f"title lookup for {video_id} returned HTTP {response.status_code}")
-            return None
+            status = f"HTTP {response.status_code}"
+            print(f"title lookup for {video_id} returned {status}")
+            return TitleLookup(None, status)
         title = response.json().get("title")
     except Exception as exc:
-        print(f"title lookup for {video_id} failed: {type(exc).__name__}")
-        return None
-    return title.strip() if isinstance(title, str) and title.strip() else None
+        status = type(exc).__name__
+        print(f"title lookup for {video_id} failed: {status}")
+        return TitleLookup(None, status)
+    if isinstance(title, str) and title.strip():
+        return TitleLookup(title.strip(), "ok")
+    print(f"title lookup for {video_id}: response had no title")
+    return TitleLookup(None, "no title in response")
+
+
+def fetch_title(video_id: str) -> str | None:
+    """The title alone, or None. Ingestion uses this; the backfill uses lookup_title."""
+    return lookup_title(video_id).title
 
 
 def ingest_video(session: Session, url_or_id: str) -> Video:

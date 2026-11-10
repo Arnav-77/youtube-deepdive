@@ -1,0 +1,12 @@
+# Hand-written video titles, for videos YouTube's oEmbed endpoint cannot title.
+# Read by evaluation/backfill_titles.py only, and only for videos with no title
+# yet. oEmbed is asked first, so an entry here is used only when it gives none.
+#
+# One line per video, the 11-character id, a colon, then the title:
+#
+#   LXaFHI_2Hus: Everest base camp: what the climb involves
+#
+# Quote a title that YAML could read as something else, such as a number or
+# yes/no/on/off:
+#
+#   abc12345678: "2024"
