@@ -229,6 +229,53 @@ def test_paste_text_containing_prompt_markers_is_not_substituted_into():
     assert prompt.index("__CONTEXT__ __QUESTION__") > prompt.index("EXCERPTS")
 
 
+# --- the same-line layout copied from the panel (synthetic words) ------------
+
+def test_same_line_layout_timestamp_then_words():
+    parsed = parse_paste("0:04 gadgets alpha beta\n0:09 gamma delta\n")
+    assert [(s["start"], s["text"]) for s in parsed.snippets] == [
+        (4.0, "gadgets alpha beta"),
+        (9.0, "gamma delta"),
+    ]
+
+
+def test_digits_glued_to_the_seconds_are_a_fraction_of_a_second():
+    # "0:045" is 4.5 s; "10:2345" is 23.45 s.
+    parsed = parse_paste("0:045 one\n10:2345 two\n")
+    assert [s["start"] for s in parsed.snippets] == [4.5, 623.45]
+
+
+def test_fraction_keeps_the_ordering_check_honest():
+    # 4.5 then 4.4 goes backwards even though the whole seconds are equal.
+    with pytest.raises(PasteError, match="backwards"):
+        parse_paste("0:045 one\n0:044 two\n")
+
+
+def test_fractional_durations_run_to_the_next_start():
+    parsed = parse_paste("0:045 a\n0:096 b\n")
+    assert parsed.snippets[0]["duration"] == pytest.approx(5.1)
+
+
+def test_chapter_titles_are_skipped_and_counted_not_merged_into_speech():
+    parsed = parse_paste(
+        "0:00 hello there\n"
+        "Chapter 2: Made-up Title Words\n"
+        "0:04 more words\n"
+    )
+    assert parsed.skipped_chapter_lines == 1
+    assert [s["text"] for s in parsed.snippets] == ["hello there", "more words"]
+
+
+def test_both_layouts_can_appear_in_one_paste():
+    parsed = parse_paste("0:00\nown line words\n0:04 same line words\n")
+    assert [s["text"] for s in parsed.snippets] == ["own line words", "same line words"]
+
+
+def test_hours_with_fraction_parses():
+    parsed = parse_paste("1:02:33 late words\n")
+    assert parsed.snippets[0]["start"] == 3753.0
+
+
 # --- Arnav's real copied transcript (local only) ----------------------------
 
 LOCAL_SAMPLE = Path(__file__).with_name("local_sample_paste.txt")

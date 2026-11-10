@@ -38,12 +38,25 @@ MAX_VIDEO_SECONDS = 12 * 3600
 # approximate for pasted videos.
 LAST_SNIPPET_SECONDS = 4.0
 
-# Either h:mm:ss (minutes must be 00-59) or m:ss (the panel shows "75:30" for
-# a 75-minute video, so minutes may be up to 3 digits). Seconds are 00-59 in
-# both. Optional same-line text after the timestamp.
+# Two layouts are accepted, because the panel has shown both.
+#
+#   Own line:   "1:02:33" alone on a line, words on the next line(s).
+#   Same line:  "0:04 words" or, in the copy checked on 10 Nov, "0:045 words".
+#
+# The timestamp is h:mm:ss (minutes 00-59) or m:ss (minutes up to 3 digits:
+# the panel shows "75:30" for a 75 minute video). Seconds are 00-59. Digits
+# glued directly onto the seconds are FRACTIONAL seconds: "0:045" is 4.5 s and
+# "10:2345" is 23.45 s. Measured on the 10 Nov sample: the fraction has one or
+# two digits, and with it the timestamps only ever go forward.
+#
+# Groups: 1 hours, 2 minutes after hours, 3 minutes, 4 seconds, 5 fraction
+# digits, 6 same-line words.
 _TIMESTAMP = re.compile(
-    r"^\s*(?:(\d{1,2}):([0-5]\d)|(\d{1,3})):([0-5]\d)(?:\s+(.*?))?\s*$"
+    r"^\s*(?:(\d{1,2}):([0-5]\d)|(\d{1,3})):([0-5]\d)(\d*)(?:\s+(.*?))?\s*$"
 )
+
+# Chapter titles in the panel, e.g. "Chapter 2: Something". Not speech; skipped.
+_CHAPTER = re.compile(r"^\s*Chapter\s+\d+\s*:")
 
 
 class PasteError(ValueError):
@@ -54,6 +67,7 @@ class PasteError(ValueError):
 class ParsedPaste:
     snippets: list[dict]  # {"text", "start", "duration"}, as to_raw_data() gives
     skipped_leading_lines: int  # panel headings before the first timestamp
+    skipped_chapter_lines: int  # "Chapter N:" titles anywhere in the paste
 
 
 def _check_characters(text: str) -> None:
@@ -68,11 +82,15 @@ def _check_characters(text: str) -> None:
             raise PasteError("the transcript contains a control character")
 
 
-def _timestamp_seconds(match: re.Match) -> int:
-    hours_or_none, minutes_in_hours, minutes_only, seconds = match.groups()[:4]
+def _timestamp_seconds(match: re.Match) -> float:
+    hours_or_none, minutes_in_hours, minutes_only, seconds, fraction, _ = match.groups()
     if hours_or_none is not None:
-        return int(hours_or_none) * 3600 + int(minutes_in_hours) * 60 + int(seconds)
-    return int(minutes_only) * 60 + int(seconds)
+        whole = int(hours_or_none) * 3600 + int(minutes_in_hours) * 60 + int(seconds)
+    else:
+        whole = int(minutes_only) * 60 + int(seconds)
+    if not fraction:
+        return float(whole)
+    return whole + int(fraction) / 10 ** len(fraction)
 
 
 def parse_paste(text: str) -> ParsedPaste:
@@ -90,13 +108,17 @@ def parse_paste(text: str) -> ParsedPaste:
     # Each kept segment: [start_seconds, [text parts]]
     segments: list[list] = []
     skipped_leading = 0
+    skipped_chapters = 0
 
     for line in text.splitlines():
         if not line.strip():
             continue
+        if _CHAPTER.match(line):
+            skipped_chapters += 1
+            continue
         match = _TIMESTAMP.match(line)
         if match:
-            segments.append([_timestamp_seconds(match), [match.group(5) or ""]])
+            segments.append([_timestamp_seconds(match), [match.group(6) or ""]])
             continue
         if not segments:
             # Before any timestamp: panel headings such as "Show transcript".
@@ -135,7 +157,11 @@ def parse_paste(text: str) -> ParsedPaste:
             duration = LAST_SNIPPET_SECONDS
         snippets.append({"text": words, "start": float(start), "duration": duration})
 
-    return ParsedPaste(snippets=snippets, skipped_leading_lines=skipped_leading)
+    return ParsedPaste(
+        snippets=snippets,
+        skipped_leading_lines=skipped_leading,
+        skipped_chapter_lines=skipped_chapters,
+    )
 
 
 class PasteTooLarge(PasteError):
