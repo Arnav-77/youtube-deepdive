@@ -67,6 +67,10 @@ class Video(Base):
     # raw_transcript holds the parsed snippets; this holds what was pasted.
     raw_paste: Mapped[str | None] = mapped_column(Text)
 
+    # Who added a pasted video: 'visitor' (public paste, subject to limits) or
+    # 'admin' (paste with the admin token). NULL for captions videos.
+    added_by: Mapped[str | None] = mapped_column(String(16))
+
     # server_default=func.now() means Postgres fills this in, not Python.
     # One less thing that can be wrong if a clock drifts.
     fetched_at: Mapped[datetime] = mapped_column(
