@@ -1,8 +1,11 @@
 """DeepDive API — Phase 02 skeleton."""
 
 import os
+from datetime import datetime
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Response ,HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel , Field
 from app.chunking import store_chunks
 from app.youtube import ingest_video
@@ -51,6 +54,13 @@ LIVE_EMBED_TIMEOUT_S = 10.0
 
 app = FastAPI(title="YouTube Deep-Dive API", version="0.1.0")
 
+# The web page: one static HTML file, served from the same origin as the API,
+# so the browser needs no CORS. Resolved from this file, not the working
+# directory, so it works from the repo root and inside the container alike.
+# check_dir (the default) stops startup if the folder is missing.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/ui", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+
 
 # api_route rather than @app.get so this answers HEAD too. Render's platform
 # probe sends HEAD (a GET that returns headers without a body, which is why
@@ -58,7 +68,8 @@ app = FastAPI(title="YouTube Deep-Dive API", version="0.1.0")
 # noise that trains you to ignore your own logs.
 @app.api_route("/", methods=["GET", "HEAD"])
 def root():
-    return {"service": SERVICE_NAME, "docs": "/docs"}
+    # Stays JSON: Render's probe reads it. "ui" tells a person where the page is.
+    return {"service": SERVICE_NAME, "docs": "/docs", "ui": "/ui/"}
 
 
 @app.get("/health")
@@ -99,6 +110,42 @@ def ready(response: Response, session: Session = Depends(get_session)):
         # stdout where Render captures it; the caller gets a class name.
         print(f"readiness check failed: {exc!r}")
         return {"status": "not_ready", "database": type(exc).__name__}
+class VideoSummary(BaseModel):
+    """One row of GET /videos. Metadata only: never the transcript or chunk text."""
+
+    video_id: str
+    title: str | None
+    duration_seconds: int | None
+    source: str
+    fetched_at: datetime
+
+
+# Only videos with chunks under the run /ask searches. A video added but not
+# chunked under this run would be listed and then answer 404, so the filter
+# is the same EXISTS test that /ask uses in _HAS_CHUNKS.
+_LIST_VIDEOS = text("""
+    SELECT v.video_id, v.title, v.duration_seconds, v.source, v.fetched_at
+    FROM videos AS v
+    WHERE EXISTS (
+        SELECT 1 FROM chunks AS c
+        WHERE c.video_id = v.video_id AND c.chunking_run = :run
+    )
+    ORDER BY v.fetched_at DESC
+""")
+
+
+@app.get("/videos", response_model=list[VideoSummary])
+def list_videos(session: Session = Depends(get_session)):
+    """List the videos that /ask can answer, newest first.
+
+    Same path as POST /videos, which adds one. Titles are null until ingestion
+    fills them; the page shows the video id in the meantime.
+    """
+    run = chunking_run_label(DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP)
+    rows = session.execute(_LIST_VIDEOS, {"run": run}).mappings().all()
+    return [VideoSummary.model_validate(dict(row)) for row in rows]
+
+
 class IngestRequest(BaseModel):
     """What the client sends to POST /videos.
 

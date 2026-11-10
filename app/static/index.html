@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube Deep-Dive</title>
+<style>
+  /* Inline on purpose: one file, no build step, no outside stylesheet. */
+  body {
+    font-family: system-ui, sans-serif;
+    line-height: 1.5;
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 0.2rem; }
+  h2 { font-size: 1.1rem; margin-top: 1.5rem; }
+  .muted { opacity: 0.7; }
+  .error { color: #b00020; }
+
+  /* Each video is a row: thumbnail, then the id. Stacks on a phone. */
+  #videos { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+  #videos label {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    border: 1px solid #8886;
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+  }
+  #videos img {
+    width: 160px;
+    height: 90px;
+    flex: none;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #8883;
+  }
+  #videos code { word-break: break-all; }
+  #videos .title { display: block; }
+
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 4rem;
+    font: inherit;
+    padding: 8px;
+  }
+  button { font: inherit; padding: 8px 16px; }
+
+  /* pre-wrap keeps the paragraph breaks the model wrote. */
+  #answer { white-space: pre-wrap; margin-top: 1rem; }
+  a.cite { margin-left: 2px; }
+</style>
+</head>
+<body>
+<h1>YouTube Deep-Dive</h1>
+<p class="muted">Pick a video, ask a question, then follow the links to the moment in the video that supports each claim.</p>
+
+<h2>Videos</h2>
+<p id="videos-status" class="muted">Loading videos...</p>
+<ul id="videos"></ul>
+
+<h2>Question</h2>
+<form id="ask-form">
+  <label for="question">Your question</label>
+  <textarea id="question" maxlength="500" required></textarea>
+  <p><button type="submit" id="ask-button">Ask</button></p>
+</form>
+<p id="status" class="muted" role="status"></p>
+<div id="answer" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+// YouTube's own thumbnail host. The visitor's browser loads it, not the server.
+const thumbnailUrl = (id) =>
+  `https://img.youtube.com/vi/${encodeURIComponent(id)}/mqdefault.jpg`;
+
+// Matches an excerpt number in the answer text, e.g. the "[2]" in "...[2]".
+const CITATION_PATTERN = /\[(\d+)\]/g;
+
+// Builds an element with createElement, never innerHTML. Strings become text
+// nodes, so model output is shown as text and can never run as HTML.
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs || {})) {
+    if (key === "className") node.className = value;
+    else node.setAttribute(key, value);
+  }
+  for (const child of children) {
+    node.append(typeof child === "string" ? document.createTextNode(child) : child);
+  }
+  return node;
+}
+
+// 83.0 -> "1:23". Seconds only, because that is what the server sends.
+function mmss(seconds) {
+  const total = Math.floor(seconds);
+  const minutes = Math.floor(total / 60);
+  const secs = String(total % 60).padStart(2, "0");
+  return `${minutes}:${secs}`;
+}
+
+function videoRow(video, checked) {
+  const thumb = el("img", {
+    src: thumbnailUrl(video.video_id),
+    alt: "",
+    width: "160",
+    height: "90",
+    loading: "lazy",
+  });
+  // If YouTube has no thumbnail for a video, drop the picture and keep the id.
+  thumb.addEventListener("error", () => thumb.remove());
+
+  const radio = el("input", { type: "radio", name: "video", value: video.video_id });
+  radio.checked = checked;
+
+  const text = [];
+  if (video.title) text.push(el("span", { className: "title" }, video.title));
+  text.push(el("code", {}, video.video_id));
+
+  return el("li", {}, el("label", {}, radio, thumb, el("span", {}, ...text)));
+}
+
+async function loadVideos() {
+  const status = document.getElementById("videos-status");
+  const list = document.getElementById("videos");
+  try {
+    const response = await fetch("/videos");
+    if (!response.ok) throw new Error(`The video list failed (${response.status}).`);
+    const videos = await response.json();
+    if (videos.length === 0) {
+      status.textContent = "No videos have been added yet.";
+      return;
+    }
+    status.textContent = "";
+    // The first video is picked by default, so the form always has a choice.
+    videos.forEach((video, i) => list.append(videoRow(video, i === 0)));
+  } catch (err) {
+    status.className = "error";
+    status.textContent = `Could not load the videos. ${err.message}`;
+  }
+}
+
+// Turns the answer into text plus links. Only numbers the server listed in
+// `citations` become links; any other [n] stays plain text.
+function renderAnswer(data) {
+  const byNumber = new Map(data.citations.map((c) => [c.number, c]));
+  const nodes = [];
+  let last = 0;
+  for (const match of data.answer.matchAll(CITATION_PATTERN)) {
+    nodes.push(document.createTextNode(data.answer.slice(last, match.index)));
+    const number = Number(match[1]);
+    const citation = byNumber.get(number);
+    if (citation) {
+      nodes.push(
+        el(
+          "a",
+          { href: citation.url, target: "_blank", rel: "noopener", className: "cite" },
+          `[${number} ${mmss(citation.start_seconds)}]`,
+        ),
+      );
+    } else {
+      nodes.push(document.createTextNode(match[0]));
+    }
+    last = match.index + match[0].length;
+  }
+  nodes.push(document.createTextNode(data.answer.slice(last)));
+  return nodes;
+}
+
+function errorMessage(status, data) {
+  // The server's own message (400, 404, 502) is written to be read by a person.
+  if (data && typeof data.detail === "string") return data.detail;
+  return `The server returned an error (${status}).`;
+}
+
+async function ask(event) {
+  event.preventDefault();
+  const form = event.target;
+  const status = document.getElementById("status");
+  const answer = document.getElementById("answer");
+  const button = document.getElementById("ask-button");
+  const picked = form.querySelector('input[name="video"]:checked');
+  const question = document.getElementById("question").value.trim();
+
+  if (!picked) {
+    status.className = "error";
+    status.textContent = "Pick a video first.";
+    return;
+  }
+  if (!question) {
+    status.className = "error";
+    status.textContent = "Type a question first.";
+    return;
+  }
+
+  button.disabled = true;
+  status.className = "muted";
+  status.textContent = "Asking... this can take a few seconds.";
+  answer.replaceChildren();
+
+  try {
+    let response;
+    try {
+      response = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video: picked.value, question }),
+      });
+    } catch {
+      throw new Error("Could not reach the server. It may be waking up; try again in a minute.");
+    }
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(errorMessage(response.status, data));
+
+    status.textContent = "";
+    answer.replaceChildren(...renderAnswer(data));
+  } catch (err) {
+    status.className = "error";
+    status.textContent = err.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById("ask-form").addEventListener("submit", ask);
+loadVideos();
+</script>
+</body>
+</html>
