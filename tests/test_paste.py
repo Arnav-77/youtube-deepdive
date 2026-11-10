@@ -341,10 +341,107 @@ def test_both_layouts_can_appear_in_one_paste():
     assert [s["text"] for s in parsed.snippets] == ["own line words", "same line words"]
 
 
-def test_hours_form_is_a_whole_second_and_nothing_is_removed():
-    # No spelled form is removed for h:mm:ss (none in the sample to check),
-    # so glued digits stay as speech.
-    assert _one("1:02:331 alpha\n") == (3753.0, "1 alpha")
+# --- the hours form, built from the digits: exact match only -----------------
+
+def _hms(text):
+    return parse_paste(text).snippets
+
+
+def test_hours_form_with_hour_minutes_and_seconds_is_removed():
+    assert _one("1:02:151 hour, 2 minutes, 15 seconds alpha\n") == (3735.0, "alpha")
+
+
+def test_hours_form_with_hour_and_minutes_is_removed():
+    assert _one("1:02:151 hour, 2 minutes alpha\n") == (3735.0, "alpha")
+
+
+def test_hours_form_with_hour_and_seconds_is_removed():
+    assert _one("1:00:151 hour, 15 seconds alpha\n") == (3615.0, "alpha")
+
+
+def test_hours_form_with_the_hour_alone_is_removed():
+    assert _one("1:00:001 hour alpha\n") == (3600.0, "alpha")
+
+
+def test_plural_hours_are_read_as_plural():
+    assert _one("2:00:002 hours alpha\n") == (7200.0, "alpha")
+    assert _one("2:05:002 hours, 5 minutes alpha\n") == (7500.0, "alpha")
+
+
+def test_speech_may_follow_an_hour_label_with_no_space():
+    assert _one("1:00:001 houralpha\n") == (3600.0, "alpha")
+
+
+def test_speech_after_an_hour_label_may_start_with_a_number_after_a_space():
+    # "1 hour 5 minutes later" is the label then speech; the speech's number is kept.
+    parsed = _hms(
+        "1:00:001 hour 5 minutes later we\n"
+        "1:01:001 hour alpha\n"
+        "1:02:001 hour beta\n"
+        "1:03:001 hour gamma\n"
+    )
+    assert parsed[0]["text"] == "5 minutes later we"
+    assert [x["text"] for x in parsed[1:]] == ["alpha", "beta", "gamma"]
+
+
+def test_an_hours_label_with_no_commas_is_not_a_complete_match():
+    # "1 hour" then " 2 minutes 15 seconds" is not the panel's comma form. The hour
+    # is removed as a form, but what is left still starts with a digit, so the
+    # safety net counts it.
+    parsed = _hms(
+        "1:02:151 hour 2 minutes 15 seconds alpha\n"
+        "1:03:001 hour beta\n"
+        "1:04:001 hour gamma\n"
+        "1:05:001 hour delta\n"
+    )
+    assert parsed[0]["text"] == "2 minutes 15 seconds alpha"
+
+
+def test_a_wrong_hours_guess_removes_nothing_and_the_line_is_kept():
+    # One line of four is unmatched, which is not more than half: accepted.
+    # The bare "1 hour" must not strip the start of "1 hour, 9 minutes".
+    parsed = _hms(
+        "1:00:001 hour alpha\n"
+        "1:00:151 hour, 9 minutes beta\n"
+        "1:01:001 hour gamma\n"
+        "1:01:101 hour delta\n"
+    )
+    assert [s["text"] for s in parsed] == ["alpha", "1 hour, 9 minutes beta", "gamma", "delta"]
+
+
+def test_an_hours_line_with_own_line_words_needs_no_label():
+    parsed = _hms("1:00:00\nown line words\n")
+    assert parsed[0]["start"] == 3600.0 and parsed[0]["text"] == "own line words"
+
+
+# --- the safety net: most h:mm:ss lines with an unmatched glued label -------
+
+def _unmatched(i):
+    # Each line has its own, increasing timestamp; its label matches nothing.
+    return f"1:{i:02d}:151 hour 2 minutes 15 seconds alpha\n"
+
+
+def test_most_hours_lines_unmatched_is_refused_with_the_message():
+    text = _unmatched(0) + _unmatched(1) + _unmatched(2) + "1:03:001 hour alpha\n"  # 3 of 4
+    with pytest.raises(PasteError, match="isn't supported yet for videos over an hour"):
+        parse_paste(text)
+
+
+def test_exactly_half_hours_lines_unmatched_is_accepted():
+    text = _unmatched(0) + _unmatched(1) + "1:02:001 hour alpha\n" + "1:03:001 hour beta\n"  # 2 of 4
+    assert len(parse_paste(text).snippets) == 4
+
+
+def test_hours_lines_with_nothing_glued_are_never_refused():
+    text = "".join(f"1:0{i}:00\nwords {i}\n" for i in range(5))
+    assert len(parse_paste(text).snippets) == 5
+
+
+def test_unmatched_minutes_lines_do_not_count_toward_the_hours_safety_net():
+    # Only h:mm:ss lines count. These two minutes lines are unmatched glued digits.
+    text = "0:041 alpha\n0:052 beta\n" + "1:00:001 hour gamma\n"
+    parsed = parse_paste(text).snippets
+    assert [s["text"] for s in parsed] == ["1 alpha", "2 beta", "gamma"]
 
 
 # --- the real panel layout, made-up words, the cases that matter --------------
@@ -403,6 +500,23 @@ def test_the_real_layout_gives_the_same_chunks_as_the_captions_list():
 
 
 # --- Arnav's real copied transcript (local only) ----------------------------
+
+LONG_SAMPLE = Path(__file__).with_name("local_sample_paste_long.txt")
+
+
+@pytest.mark.skipif(not LONG_SAMPLE.exists(), reason="no long local sample on this machine")
+def test_real_long_copy_parses_with_whole_second_forward_starts_and_no_leftover_labels():
+    # Shape and counts only, never prints transcript text. This copy has no
+    # hours label on its lines, so nothing is removed, and the check is that
+    # nothing is left behind that looks like one.
+    segments = parse_paste(LONG_SAMPLE.read_text(encoding="utf-8")).snippets
+    starts = [s["start"] for s in segments]
+    assert len(segments) == 135
+    assert all(x == int(x) for x in starts), "every start is a whole second"
+    assert all(b > a for a, b in zip(starts, starts[1:])), "strictly forward"
+    assert not [s for s in segments if s["text"].lower().startswith(("hour", "minute", "second"))]
+    assert not [s for s in segments if s["text"][:1].isdigit()]
+
 
 LOCAL_SAMPLE = Path(__file__).with_name("local_sample_paste.txt")
 

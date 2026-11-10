@@ -80,41 +80,79 @@ def _spelled_candidates(minutes: int, seconds: int) -> list[tuple[str, bool]]:
     return [(f"{seconds} {second_word}", True), (f"{seconds}", False)]
 
 
-def _strip_spelled(minutes: int, seconds: int, rest: str) -> str:
-    """Remove the spelled-out time glued to a timestamp, if it is exactly that.
+def _hours_candidates(hours: int, minutes: int, seconds: int) -> list[tuple[str, bool]]:
+    """The spelled-out forms an h:mm:ss timestamp may carry, built from its digits.
 
-    Only text that starts right after the timestamp, with no space, is a
-    candidate. The match is case-insensitive. A form ending in a bare number
-    must not be followed by a digit (that would make a longer number). After a
-    unit word the speech may follow at once, letters or digits, because the
-    panel sometimes writes it straight on with no space. Anything that does not match is returned unchanged: it is speech,
-    and it is never read as a number.
+    UNCONFIRMED: no real copy with an hours label has been checked yet (see
+    docs/decisions.md, 10 Nov). These are the forms the minutes pattern implies.
+    Each zero component is left out, and every combination that keeps the hour
+    is tried, longest first. The hour word is singular for 1.
+    """
+    hour_word = "hour" if hours == 1 else "hours"
+    head = f"{hours} {hour_word}"
+    minute_part = (f"{minutes} {'minute' if minutes == 1 else 'minutes'}" if minutes else None)
+    second_part = (f"{seconds} {'second' if seconds == 1 else 'seconds'}" if seconds else None)
+    forms = []
+    if minute_part and second_part:
+        forms.append(f"{head}, {minute_part}, {second_part}")
+    if minute_part:
+        forms.append(f"{head}, {minute_part}")
+    if second_part:
+        forms.append(f"{head}, {second_part}")
+    forms.append(head)
+    return [(form, True) for form in forms]
+
+
+def _strip_spelled(candidates: list[tuple[str, bool]], rest: str) -> tuple[str, bool]:
+    """Remove a spelled-out time glued to a timestamp, if it is exactly one of the candidates.
+
+    Returns (the words, whether something was removed). Only text that starts
+    right after the timestamp, with no space, is a candidate. The match is
+    case-insensitive. A form ending in a bare number must not be followed by a
+    digit (that would make a longer number). A form ending in a unit word must
+    not be followed by a separator and a number: the label goes on, so this is a
+    prefix of a longer label. After a unit word the speech may follow at once,
+    letters or digits, because the panel sometimes writes it straight on. Anything that does not match is returned
+    unchanged: it is speech, and it is never read as a number.
     """
     if not rest or rest[0].isspace():
-        return rest.lstrip()
-    for candidate, ends_with_unit in _spelled_candidates(minutes, seconds):
-        head = rest[: len(candidate)]
-        if head.lower() == candidate.lower():
-            after = rest[len(candidate):]
-            # A bare number must not be followed by a digit: that would be a longer
-            # number. After a unit word, speech may start at once, digits included.
-            if ends_with_unit or not after[:1].isdigit():
-                return after.lstrip()
-    return rest
+        return rest.lstrip(), False
+    for candidate, ends_with_unit in candidates:
+        if rest[: len(candidate)].lower() != candidate.lower():
+            continue
+        after = rest[len(candidate):]
+        if ends_with_unit:
+            # A unit word followed by a comma and a number means the label goes on:
+            # this is a prefix of a longer label, not the exact one. (A space and a
+            # number is ambiguous with speech, so it is not treated this way.)
+            if re.match(r",\s*\d", after):
+                continue
+        elif after[:1].isdigit():
+            # A bare number followed by more digits is a longer number.
+            continue
+        return after.lstrip(), True
+    return rest, False
 
 
-def _read_timestamp(match: re.Match) -> tuple[float, str]:
-    """(start in whole seconds, the words after the timestamp with any glued spelled time removed)."""
+def _read_timestamp(match: re.Match) -> tuple[float, str, bool, bool]:
+    """(start in whole seconds, words after the timestamp, is an h:mm:ss line, glued digits left).
+
+    The last flag is the safety net's count: an h:mm:ss line whose glued text
+    still starts with a digit after any removal.
+    """
     hours, minutes_in_hours, minutes_only, seconds_text, rest = match.groups()
     seconds = int(seconds_text)
     if hours is not None:
-        # The panel's spelled form for h:mm:ss has no sample to check against,
-        # so nothing is removed here. The rest stays as written, digits included.
-        start = int(hours) * 3600 + int(minutes_in_hours) * 60 + seconds
-        return float(start), rest.lstrip()
+        h, mm = int(hours), int(minutes_in_hours)
+        start = h * 3600 + mm * 60 + seconds
+        words, _ = _strip_spelled(_hours_candidates(h, mm, seconds), rest)
+        # Still glued on, and still starting with a digit after any removal.
+        glued_left = rest[:1].isdigit() and words[:1].isdigit()
+        return float(start), words, True, glued_left
     minutes = int(minutes_only)
     start = minutes * 60 + seconds
-    return float(start), _strip_spelled(minutes, seconds, rest)
+    words, _ = _strip_spelled(_spelled_candidates(minutes, seconds), rest)
+    return float(start), words, False, False
 
 
 # Chapter titles in the panel, e.g. "Chapter 2: Something". Not speech; skipped.
@@ -169,8 +207,8 @@ def parse_paste(text: str) -> ParsedPaste:
             continue
         match = _TIMESTAMP.match(line)
         if match:
-            start, words = _read_timestamp(match)
-            segments.append([start, [words]])
+            start, words, is_hours, glued = _read_timestamp(match)
+            segments.append([start, [words], is_hours, glued])
             continue
         if not segments:
             # Before any timestamp: panel headings such as "Show transcript".
@@ -182,11 +220,18 @@ def parse_paste(text: str) -> ParsedPaste:
     if not segments:
         raise PasteError("no timestamps found; copy the transcript from the panel")
 
+    # Safety net for a layout not seen yet. If most h:mm:ss lines still have text
+    # glued straight on that starts with a digit, the spelled-out label is in a
+    # form these rules do not cover. Refuse the paste; nothing is stored.
+    hours_segments = [seg for seg in segments if seg[2]]
+    if hours_segments and sum(1 for seg in hours_segments if seg[3]) * 2 > len(hours_segments):
+        raise PasteError("this copy format isn't supported yet for videos over an hour")
+
     # Join each segment's words and drop segments with no words. A timestamp
     # with nothing after it is a gap in the panel, not a snippet.
     kept: list[tuple[int, str]] = []
     previous_start = -1
-    for start, parts in segments:
+    for start, parts, _is_hours, _glued in segments:
         if start < previous_start:
             raise PasteError("timestamps go backwards; the paste may be out of order")
         if start > MAX_VIDEO_SECONDS:

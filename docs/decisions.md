@@ -12,6 +12,16 @@
 - 413 for an oversized body. Rejected: rule 6 says 422 for invalid input, and one family is easier to explain.
 - Keep the progress route behind the token. Rejected: it is needed after a paste, and it carries no transcript text.
 
+## 10 Nov 2026: two real copies, two layouts; the hours label is unconfirmed; a safety net for unseen layouts
+
+**Two layouts.** Two real copies have come in, and they differ. The habits talk (under an hour) has each timestamp and its words on one line, with the time written again in words glued straight onto the timestamp ("2:42" followed by "2 minutes, 42 ..."). The CS229 lecture (over an hour) has each timestamp alone on its own line, with the words on the lines below, and no glued text on any timestamp line. The parser accepts both.
+
+**The hours label is unconfirmed.** No copy checked so far shows an hours label. The CS229 copy switches from m:ss to h:mm:ss at 1:00:00 and carries no glued text at all. The hours candidates ("1 hour, 2 minutes, 15 seconds", "1 hour, 2 minutes", "1 hour, 15 seconds", "1 hour", and the plural "hours") are built from the digits by analogy with the minutes form. They are only removed on an exact match, so a wrong guess removes nothing. They are not confirmed against any real copy.
+
+**Matching rules, for both minutes and hours.** A candidate is removed only when the glued text starts with it exactly, case-insensitively. A form that ends in a bare number must not be followed by another digit. A form that ends in a unit word must not be followed by a comma and a number, because the label goes on there. A space and a number after a unit word are ambiguous with speech, so they are allowed. Known edge: a no-comma label such as "1 hour 2 minutes" matches its bare "1 hour" prefix, and the leftover "2 minutes ..." is then counted by the safety net.
+
+**Safety net.** If more than half of the h:mm:ss lines still have a digit glued straight on at the start of their text after any removal, the paste is refused with 422 ("this copy format isn't supported yet for videos over an hour"). Nothing is stored. Only h:mm:ss lines count. Two m:ss lines with unmatched glued digits do not trigger it.
+
 ## 10 Nov 2026: glued digits are spelled-out time, not fractions; every start is a whole second
 
 **Decision.** After an m:ss or h:mm:ss timestamp, the parser builds the spelled-out time from the timestamp's own digits ("2 minutes, 42", "2 minutes, 42 seconds", "1 minute, 5 seconds", "10 minutes", and under a minute the seconds digits alone, with or without "seconds"). It removes that form from the start of the words only when the text there matches exactly, case-insensitively. A form ending in a bare number must not be followed by a digit. A form ending in a unit word may be followed directly by speech, letters or digits. Nothing else is removed, and the spelled part is never parsed on its own. Digits are never read as a fraction, so every start is a whole second.

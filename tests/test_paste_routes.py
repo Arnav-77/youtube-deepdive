@@ -440,3 +440,15 @@ def test_a_paste_with_missing_timestamps_is_422_and_nothing_is_stored(env):
     assert r.status_code == 422
     assert "timestamps look missing" in r.json()["detail"]
     assert env.fake.added == []
+
+
+def test_a_long_copy_whose_hour_labels_do_not_match_is_422_and_nothing_is_stored(env):
+    # Made-up lines in a layout these rules do not cover: most h:mm:ss lines
+    # keep a digit glued on after the timestamp.
+    text = "".join(
+        f"1:{i:02d}:151 hour 2 minutes 15 seconds made up words\n" for i in range(3)
+    ) + "1:03:001 hour made up words\n"
+    r = post(env.client, good_body(text))
+    assert r.status_code == 422
+    assert r.json()["detail"] == "this copy format isn't supported yet for videos over an hour"
+    assert env.fake.added == []
