@@ -154,9 +154,35 @@ class IngestResponse(BaseModel):
     embedded_count: int
 
 
+def _require_admin(request: Request) -> None:
+    """Admin only, and FAILS CLOSED: 401 unless PASTE_TOKEN is set and matched.
+
+    This is the opposite of POST /videos/paste, where an unset token means
+    public with limits. Here nothing is public: a missing or unset token
+    means the caller is refused before any YouTube fetch or database write.
+    """
+    if not PASTE_TOKEN:
+        raise HTTPException(
+            status_code=401,
+            detail="this endpoint needs the admin token, and none is configured",
+        )
+    provided = request.headers.get("x-paste-token", "")
+    if not hmac.compare_digest(provided.encode("utf-8"), PASTE_TOKEN.encode("utf-8")):
+        raise HTTPException(status_code=401, detail="missing or wrong X-Paste-Token header")
+
+
 @app.post("/videos", response_model=IngestResponse)
-def ingest(payload: IngestRequest, session: Session = Depends(get_session)):
-    """Fetch a video's transcript, store it, and chunk it.
+def ingest(
+    payload: IngestRequest,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    """Fetch a video's transcript, store it, and chunk it. ADMIN ONLY.
+
+    Needs the X-Paste-Token header. Fails closed: with no PASTE_TOKEN
+    configured, every request gets 401. The check runs first, so a refused
+    request triggers no YouTube fetch and writes nothing. Visitors add videos
+    with POST /videos/paste instead, which has limits.
 
     KNOWN LIMITATION -- THIS BLOCKS.
     Fetching a transcript takes seconds, and this handler holds a worker for
@@ -175,8 +201,9 @@ def ingest(payload: IngestRequest, session: Session = Depends(get_session)):
     hit repeatedly during evaluation runs and the transcript API is rate
     limited.
     """
+    _require_admin(request)
     try:
-        video = ingest_video(session, payload.url)
+        video = ingest_video(session, payload.url, added_by="admin")
     except ValueError as exc:
         # extract_video_id raises ValueError on an unparseable URL. That is
         # the client's fault, so 400 -- not 500, which would claim our bug.

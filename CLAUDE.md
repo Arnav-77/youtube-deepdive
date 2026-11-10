@@ -14,7 +14,7 @@ Conversational RAG over YouTube transcripts. Every claim in an answer links to t
 | File | Job |
 | --- | --- |
 | run.py | Starts uvicorn on PORT (Render sets it) |
-| app/main.py | Endpoints /health, /ready, /videos, /ask; 404 check; citations; request log |
+| app/main.py | Endpoints /health, /ready, /videos, /ask; 404 check; citations; request log. POST /videos is ADMIN ONLY and fails closed: 401 unless PASTE_TOKEN is set and the X-Paste-Token header matches, before any YouTube fetch or write. POST /videos/paste is public with limits (the admin token skips them) |
 | app/youtube.py | Video id parsing, caption fetch, ingest_video |
 | app/paste.py | Parse a pasted YouTube transcript panel into caption-shaped snippets; size and shape limits; read_limited (pure) |
 | app/jobs.py | Background embedding for one video at a time (resumable by resending); progress counts; derive_status (pure) |

@@ -78,13 +78,17 @@ def fetch_transcript(video_id: str) -> tuple[list[dict], str]:
     return transcript.to_raw_data(), "captions"
 
 
-def ingest_video(session: Session, url_or_id: str) -> Video:
+def ingest_video(session: Session, url_or_id: str, added_by: str | None = None) -> Video:
     """Fetch a video's transcript and store it. Returns the stored row.
 
     If we already have the video, returns the existing row without
     re-fetching. This is not an optimisation -- the 20 benchmark videos get
     queried hundreds of times during evaluation runs, and the transcript
     API is rate limited and will start refusing us.
+
+    `added_by` records who added the video ('admin' from POST /videos, which
+    is admin-only). Left NULL, it marks a video as one of the older captions
+    rows, so every new caller should pass it.
     """
     video_id = extract_video_id(url_or_id)
 
@@ -109,6 +113,7 @@ def ingest_video(session: Session, url_or_id: str) -> Video:
         # frontend needs it.
         title=None,
         source=source,
+        added_by=added_by,
         raw_transcript=raw_transcript,
         duration_seconds=duration,
     )
