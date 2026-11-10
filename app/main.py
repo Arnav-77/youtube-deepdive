@@ -2,8 +2,10 @@
 
 import os
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Response ,HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel , Field
 from app.chunking import store_chunks
 from app.youtube import ingest_video
@@ -52,6 +54,13 @@ LIVE_EMBED_TIMEOUT_S = 10.0
 
 app = FastAPI(title="YouTube Deep-Dive API", version="0.1.0")
 
+# The web page: one static HTML file, served from the same origin as the API,
+# so the browser needs no CORS. Resolved from this file, not the working
+# directory, so it works from the repo root and inside the container alike.
+# check_dir (the default) stops startup if the folder is missing.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/ui", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+
 
 # api_route rather than @app.get so this answers HEAD too. Render's platform
 # probe sends HEAD (a GET that returns headers without a body, which is why
@@ -59,7 +68,8 @@ app = FastAPI(title="YouTube Deep-Dive API", version="0.1.0")
 # noise that trains you to ignore your own logs.
 @app.api_route("/", methods=["GET", "HEAD"])
 def root():
-    return {"service": SERVICE_NAME, "docs": "/docs"}
+    # Stays JSON: Render's probe reads it. "ui" tells a person where the page is.
+    return {"service": SERVICE_NAME, "docs": "/docs", "ui": "/ui/"}
 
 
 @app.get("/health")

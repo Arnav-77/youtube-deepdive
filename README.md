@@ -318,6 +318,7 @@ docker run --env-file .env -p 8000:8000 --cpus=0.1 --memory=512m deepdive
 | GET | `/health` | Liveness. Touches no dependencies, returns the commit SHA. |
 | GET | `/ready` | Readiness. Checks the database. |
 | GET | `/videos` | List the videos `/ask` can answer, newest first. Metadata only, no transcript text. |
+| GET | `/ui/` | The web page: pick a video, ask a question, follow the links to the moment in the video. Served by the API itself, so no CORS. |
 | POST | `/videos` | Add a video: fetch transcript, chunk, embed, store. Repeating it finishes an interrupted embedding. |
 | POST | `/ask` | Ask a question about an added video. Returns 404 if the video has not been added. |
 
