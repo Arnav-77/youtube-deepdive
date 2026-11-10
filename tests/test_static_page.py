@@ -73,6 +73,29 @@ def test_no_video_is_selected_by_default(page_html):
     assert "radio.checked" not in page_html
 
 
+def test_page_shows_five_videos_per_page_with_previous_and_next(page_html):
+    assert "const PAGE_SIZE = 5;" in page_html
+    assert 'id="prev"' in page_html and ">Previous</button>" in page_html
+    assert 'id="next"' in page_html and ">Next</button>" in page_html
+
+
+def test_paging_uses_the_one_videos_response_and_no_server_paging(page_html):
+    # The whole list comes in one request. No page or offset parameter is sent.
+    assert page_html.count('fetch("/videos")') == 1
+    assert 'fetch("/videos?' not in page_html
+    assert "offset=" not in page_html  # a query parameter, not CSS outline-offset
+    assert "page=" not in page_html    # likewise: no page number sent to the server
+
+
+def test_title_is_shown_under_the_thumbnail_with_the_id_as_fallback(page_html):
+    assert "video.title" in page_html
+    assert "el(\"code\", {}, id)" in page_html  # the id, when there is no title
+
+
+def test_thumbnails_load_lazily(page_html):
+    assert 'loading: "lazy"' in page_html
+
+
 def test_page_gives_the_question_the_server_limit(page_html):
     # Matches AskRequest's max_length, so a long question is stopped in the page.
     assert 'maxlength="500"' in page_html

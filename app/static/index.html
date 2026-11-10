@@ -214,7 +214,22 @@
     background: var(--border);
   }
   #videos code { word-break: break-all; }
-  #videos .title { display: block; font-weight: 600; }
+  .title { display: block; font-weight: 600; overflow-wrap: anywhere; }
+
+  /* Previous / Next under the list. The hidden attribute must win over display rules. */
+  [hidden] { display: none !important; }
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .pager button {
+    color: var(--accent);
+    background: var(--card);
+    border: 1px solid var(--accent);
+  }
 
   @media (max-width: 480px) {
     .chosen img { width: 96px; }
@@ -246,6 +261,11 @@
     <h2 id="videos-heading">Choose a video</h2>
     <p id="videos-status" class="muted">Loading videos...</p>
     <ul id="videos"></ul>
+    <nav class="pager" id="pager" aria-label="Video pages" hidden>
+      <button type="button" id="prev">Previous</button>
+      <span id="page-label" class="muted"></span>
+      <button type="button" id="next">Next</button>
+    </nav>
   </section>
 </main>
 
@@ -294,6 +314,22 @@ function thumbnail(id, size) {
   return img;
 }
 
+// Every video from the one /videos response, by id, so the chosen box can show its title.
+const videosById = new Map();
+
+// Five videos per page. The whole list comes in one response; paging is done here.
+const PAGE_SIZE = 5;
+let videoItems = []; // one <li> per video, in list order
+let page = 0; // zero-based index of the page on show
+
+// The title under a thumbnail, or the id when the video has no title yet.
+function nameOf(id) {
+  const video = videosById.get(id);
+  return video && video.title
+    ? el("span", { className: "title" }, video.title)
+    : el("code", {}, id);
+}
+
 // Shows the chosen video above the question box, so the visitor can see what
 // they are asking about without scrolling back to the list.
 function showChosen(id) {
@@ -302,20 +338,34 @@ function showChosen(id) {
     box.replaceChildren(el("p", { className: "muted" }, "No video chosen yet. Pick one below."));
     return;
   }
-  box.replaceChildren(thumbnail(id, { width: "120", height: "68" }), el("code", {}, id));
+  box.replaceChildren(thumbnail(id, { width: "120", height: "68" }), nameOf(id));
 }
 
 function videoRow(video) {
   // No video is selected until the visitor picks one.
   const radio = el("input", { type: "radio", name: "video", value: video.video_id });
-  const text = [];
-  if (video.title) text.push(el("span", { className: "title" }, video.title));
-  text.push(el("code", {}, video.video_id));
   return el(
     "li",
     {},
-    el("label", {}, radio, thumbnail(video.video_id, { width: "160", height: "90" }), el("span", {}, ...text)),
+    el("label", {}, radio, thumbnail(video.video_id, { width: "160", height: "90" }), nameOf(video.video_id)),
   );
+}
+
+// Shows the current page and enables Previous and Next only where they lead somewhere.
+// Every row is built once and hidden rather than rebuilt, so the selected radio button survives paging.
+function showPage() {
+  videoItems.forEach((item, i) => {
+    item.hidden = Math.floor(i / PAGE_SIZE) !== page;
+  });
+  const pages = Math.max(1, Math.ceil(videoItems.length / PAGE_SIZE));
+  document.getElementById("prev").disabled = page === 0;
+  document.getElementById("next").disabled = page >= pages - 1;
+  document.getElementById("page-label").textContent = `Page ${page + 1} of ${pages}`;
+}
+
+function changePage(delta) {
+  page += delta;
+  showPage();
 }
 
 async function loadVideos() {
@@ -330,7 +380,14 @@ async function loadVideos() {
       return;
     }
     status.textContent = "";
-    videos.forEach((video) => list.append(videoRow(video)));
+    for (const video of videos) {
+      videosById.set(video.video_id, video);
+      const item = videoRow(video);
+      videoItems.push(item);
+      list.append(item);
+    }
+    document.getElementById("pager").hidden = false;
+    showPage();
   } catch (err) {
     status.className = "error";
     status.textContent = `Could not load the videos. ${err.message}`;
@@ -447,6 +504,8 @@ document.getElementById("ask-form").addEventListener("submit", ask);
 document.getElementById("videos").addEventListener("change", (event) => {
   if (event.target.name === "video") showChosen(event.target.value);
 });
+document.getElementById("prev").addEventListener("click", () => changePage(-1));
+document.getElementById("next").addEventListener("click", () => changePage(1));
 showChosen(null);
 loadVideos();
 </script>
