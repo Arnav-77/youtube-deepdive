@@ -244,6 +244,7 @@
     overflow-wrap: anywhere;
   }
   .title.untitled { font-style: italic; font-weight: 400; color: var(--muted); }
+  .unchecked { display: block; font-size: 0.85em; color: var(--muted); font-style: italic; }
 
   /* Previous / Next under the list. The hidden attribute must win over display rules. */
   [hidden] { display: none !important; }
@@ -404,11 +405,13 @@ function showChosen(id) {
 function videoRow(video) {
   // No video is selected until the visitor picks one.
   const radio = el("input", { type: "radio", name: "video", value: video.video_id });
-  return el(
-    "li",
-    {},
-    el("label", {}, radio, thumbnail(video.video_id, { width: "160", height: "90" }), nameOf(video.video_id)),
-  );
+  const parts = [radio, thumbnail(video.video_id, { width: "160", height: "90" }), nameOf(video.video_id)];
+  // A visitor's paste has not been checked by the owner. Anything but an explicit
+  // true gets the label. Text only, set through el(), never innerHTML.
+  if (video.checked !== true) {
+    parts.push(el("span", { className: "unchecked" }, "not checked"));
+  }
+  return el("li", {}, el("label", {}, ...parts));
 }
 
 // Shows the current page and enables Previous and Next only where they lead somewhere.

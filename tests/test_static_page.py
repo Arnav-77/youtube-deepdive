@@ -182,3 +182,21 @@ def test_root_answers_head_for_the_render_probe(client):
     response = client.head("/")
 
     assert response.status_code == 200
+
+
+def test_a_row_is_labelled_not_checked_unless_checked_is_true(page_html):
+    # Anything but an explicit true gets the label, so a missing flag is not
+    # shown as checked.
+    row_builder = page_html[page_html.index("function videoRow(video)"):]
+    row_builder = row_builder[: row_builder.index("\n}\n") + 3]
+    assert "video.checked !== true" in row_builder
+    assert '"not checked"' in row_builder
+
+
+def test_the_not_checked_label_is_built_as_a_text_node(page_html):
+    # Through el(), whose string children become text nodes: never markup.
+    assert 'el("span", { className: "unchecked" }, "not checked")' in page_html
+
+
+def test_the_not_checked_label_is_styled_in_plain_css(page_html):
+    assert ".unchecked {" in page_html
