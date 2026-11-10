@@ -1,19 +1,18 @@
-"""Every script in evaluation/ must import from any working directory.
+"""Every script in evaluation/ must put the repo root on sys.path before importing `app`.
 
 Running `python evaluation/backfill_titles.py` from the repo root puts
-evaluation/ on sys.path, not the repo root, so `import app` fails unless the
-script adds the repo root itself with sys.path.insert. This test reproduces
-that condition: for each script, a fresh interpreter started from an empty
-directory runs the script's import statements and its sys.path lines, in
-source order, and nothing else.
+evaluation/ on sys.path, not the repo root, so `from app...` fails unless the
+script adds the repo root itself. The fix is one line, `sys.path.insert(...)`,
+placed before the first import from `app`.
 
-Only those statements run. The rest of a script (queries, network calls,
-writes to the golden set) is never executed, because some scripts have no
-__main__ guard and would act at import time.
+This test checks that by reading each script's source with `ast`. It runs
+nothing: no script is executed, and no separate Python process is started.
+A child process would not get conftest.py's network block, and some scripts
+act at import time (queries, network calls, writes to the golden set), so
+running them from a test is not allowed (see CLAUDE.md, evaluation rules).
 """
 
-import subprocess
-import sys
+import ast
 from pathlib import Path
 
 import pytest
@@ -21,18 +20,38 @@ import pytest
 EVAL_DIR = Path(__file__).resolve().parent.parent / "evaluation"
 SCRIPTS = sorted(p for p in EVAL_DIR.glob("*.py") if p.name != "__init__.py")
 
-# Runs in the fresh interpreter. Takes the script path as its one argument.
-PROBE = """
-import ast, sys
-path = sys.argv[1]
-tree = ast.parse(open(path, encoding="utf-8").read(), path)
-namespace = {"__file__": path, "__name__": "probe_script"}
-for node in tree.body:
-    is_import = isinstance(node, (ast.Import, ast.ImportFrom))
-    is_path_setup = isinstance(node, ast.Expr) and "sys.path" in ast.unparse(node)
-    if is_import or is_path_setup:
-        exec(compile(ast.Module([node], []), path, "exec"), namespace)
-"""
+
+def _imports_app(node):
+    """True for a top-level `import app...` or `from app... import ...`."""
+    if isinstance(node, ast.Import):
+        return any(a.name == "app" or a.name.startswith("app.") for a in node.names)
+    if isinstance(node, ast.ImportFrom):
+        module = node.module or ""
+        return node.level == 0 and (module == "app" or module.startswith("app."))
+    return False
+
+
+def _adds_repo_root(node):
+    """True for the sys.path line that adds the repo root (the parent of evaluation/)."""
+    if not isinstance(node, ast.Expr):
+        return False
+    text = ast.unparse(node)
+    return "sys.path" in text and "parent.parent" in text
+
+
+def problem(source):
+    """None if the source is safe to run from any directory, else what is wrong.
+
+    Walks only the top level of the module, in order. The repo root must be
+    added to sys.path before the first top-level import from `app`. A script
+    with no top-level import from `app` has nothing to get wrong.
+    """
+    for node in ast.parse(source).body:
+        if _adds_repo_root(node):
+            return None
+        if _imports_app(node):
+            return "imports from app before adding the repo root to sys.path"
+    return None
 
 
 def test_there_are_scripts_to_check():
@@ -41,14 +60,24 @@ def test_there_are_scripts_to_check():
 
 
 @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
-def test_script_imports_when_run_from_another_directory(script, tmp_path):
-    result = subprocess.run(
-        [sys.executable, "-c", PROBE, str(script)],
-        cwd=tmp_path,  # not the repo root, and no .env here
-        capture_output=True,
-        text=True,
-        timeout=120,
+def test_script_adds_the_repo_root_before_importing_app(script):
+    result = problem(script.read_text(encoding="utf-8"))
+    assert result is None, f"{script.name}: {result}"
+
+
+def test_the_check_flags_an_app_import_with_no_repo_root_setup():
+    source = "from pathlib import Path\nfrom app.db import SessionLocal\n"
+    assert problem(source) == "imports from app before adding the repo root to sys.path"
+
+
+def test_the_check_accepts_the_repo_root_setup_before_the_import():
+    source = (
+        "import sys\nfrom pathlib import Path\n"
+        "sys.path.insert(0, str(Path(__file__).resolve().parent.parent))\n"
+        "from app.db import SessionLocal\n"
     )
-    assert result.returncode == 0, (
-        f"{script.name} failed to import from {tmp_path}:\n{result.stderr[-2000:]}"
-    )
+    assert problem(source) is None
+
+
+def test_the_check_ignores_scripts_that_do_not_import_app():
+    assert problem("import argparse\nprint('hi')\n") is None
