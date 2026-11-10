@@ -1,6 +1,7 @@
 """DeepDive API — Phase 02 skeleton."""
 
 import os
+from datetime import datetime
 
 from fastapi import Depends, FastAPI, Response ,HTTPException
 from pydantic import BaseModel , Field
@@ -99,6 +100,42 @@ def ready(response: Response, session: Session = Depends(get_session)):
         # stdout where Render captures it; the caller gets a class name.
         print(f"readiness check failed: {exc!r}")
         return {"status": "not_ready", "database": type(exc).__name__}
+class VideoSummary(BaseModel):
+    """One row of GET /videos. Metadata only: never the transcript or chunk text."""
+
+    video_id: str
+    title: str | None
+    duration_seconds: int | None
+    source: str
+    fetched_at: datetime
+
+
+# Only videos with chunks under the run /ask searches. A video added but not
+# chunked under this run would be listed and then answer 404, so the filter
+# is the same EXISTS test that /ask uses in _HAS_CHUNKS.
+_LIST_VIDEOS = text("""
+    SELECT v.video_id, v.title, v.duration_seconds, v.source, v.fetched_at
+    FROM videos AS v
+    WHERE EXISTS (
+        SELECT 1 FROM chunks AS c
+        WHERE c.video_id = v.video_id AND c.chunking_run = :run
+    )
+    ORDER BY v.fetched_at DESC
+""")
+
+
+@app.get("/videos", response_model=list[VideoSummary])
+def list_videos(session: Session = Depends(get_session)):
+    """List the videos that /ask can answer, newest first.
+
+    Same path as POST /videos, which adds one. Titles are null until ingestion
+    fills them; the page shows the video id in the meantime.
+    """
+    run = chunking_run_label(DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP)
+    rows = session.execute(_LIST_VIDEOS, {"run": run}).mappings().all()
+    return [VideoSummary.model_validate(dict(row)) for row in rows]
+
+
 class IngestRequest(BaseModel):
     """What the client sends to POST /videos.
 
