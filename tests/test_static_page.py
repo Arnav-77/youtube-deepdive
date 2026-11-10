@@ -54,6 +54,18 @@ def test_page_calls_the_two_api_endpoints_on_its_own_origin(page_html):
     assert "http://" not in page_html  # nothing plain-HTTP, nothing off-origin but https thumbnails
 
 
+def test_selected_video_is_searched_for_on_the_whole_page(page_html):
+    # The video radios sit in #videos, outside #ask-form. Searching the form
+    # finds nothing, and the page always answers "Pick a video first".
+    assert 'document.querySelector(\'input[name="video"]:checked\')' in page_html
+    assert "form.querySelector" not in page_html
+
+
+def test_no_video_is_selected_by_default(page_html):
+    # The visitor picks a video; the page does not choose one for them.
+    assert "radio.checked" not in page_html
+
+
 def test_page_gives_the_question_the_server_limit(page_html):
     # Matches AskRequest's max_length, so a long question is stopped in the page.
     assert 'maxlength="500"' in page_html
