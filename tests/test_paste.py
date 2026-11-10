@@ -276,6 +276,61 @@ def test_hours_with_fraction_parses():
     assert parsed.snippets[0]["start"] == 3753.0
 
 
+# --- the real panel layout, made-up words, the cases that matter --------------
+
+REAL_SHAPE = (
+    "9:58 alpha one\n"
+    "9:59 alpha two\n"
+    "10:00 alpha three\n"
+    "Chapter 3: Made-up Title\n"
+    "1:00:05 alpha four\n"
+    "1:00:09 alpha five\n"
+)
+
+
+def test_the_jump_from_9_59_to_10_00_is_read_as_600_seconds():
+    parsed = parse_paste(REAL_SHAPE)
+    starts = [x["start"] for x in parsed.snippets]
+    assert starts[:3] == [598.0, 599.0, 600.0]
+    assert starts == sorted(starts)
+
+
+def test_an_h_mm_ss_timestamp_in_the_real_layout():
+    parsed = parse_paste(REAL_SHAPE)
+    assert parsed.snippets[3]["start"] == 1 * 3600 + 5
+    assert parsed.snippets[3]["text"] == "alpha four"
+
+
+def test_a_chapter_title_line_is_skipped_and_counted():
+    parsed = parse_paste(REAL_SHAPE)
+    assert parsed.skipped_chapter_lines == 1
+    assert "Made-up Title" not in " ".join(x["text"] for x in parsed.snippets)
+
+
+def test_an_unreadable_line_after_a_timestamp_is_joined_to_the_line_before():
+    # Not rejected, not skipped: a sentence wrapped onto a second line is
+    # indistinguishable from this, so it is kept with the words it belongs to.
+    parsed = parse_paste(REAL_SHAPE + "this line has no timestamp\n")
+    assert parsed.snippets[-1]["text"] == "alpha five this line has no timestamp"
+
+
+def test_an_unreadable_line_before_the_first_timestamp_is_skipped_and_counted():
+    parsed = parse_paste("unreadable heading\n0:00 alpha\n")
+    assert parsed.skipped_leading_lines == 1
+    assert [x["text"] for x in parsed.snippets] == ["alpha"]
+
+
+def test_the_real_layout_gives_the_same_chunks_as_the_captions_list():
+    # The 9:59 to 10:00 step is the one a naive parser gets wrong by reading
+    # minutes as a decimal; this checks the chunks come out identical.
+    parsed = parse_paste("9:59 alpha\n10:00 beta\n")
+    captions = [
+        {"text": "alpha", "start": 599.0, "duration": 1.0},
+        {"text": "beta", "start": 600.0, "duration": LAST_SNIPPET_SECONDS},
+    ]
+    assert chunk_transcript(parsed.snippets, 40, 10) == chunk_transcript(captions, 40, 10)
+
+
 # --- Arnav's real copied transcript (local only) ----------------------------
 
 LOCAL_SAMPLE = Path(__file__).with_name("local_sample_paste.txt")
@@ -293,3 +348,6 @@ def test_real_copied_transcript_parses_and_chunks():
     assert all(s["text"] for s in parsed.snippets)
     assert all(s["duration"] >= 0 for s in parsed.snippets)
     assert chunk_transcript(parsed.snippets)
+    # Forward-only, and the panel runs to about 17 minutes: the last cue must
+    # start after 16:00. (The captions path gives 1030 s for the same video.)
+    assert starts[-1] >= 16 * 60
