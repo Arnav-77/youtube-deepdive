@@ -62,6 +62,11 @@ class Video(Base):
 
     duration_seconds: Mapped[int | None] = mapped_column(Integer)
 
+    # The exact text a person pasted from YouTube's transcript panel, kept
+    # word for word. NULL for every video that came from the captions path.
+    # raw_transcript holds the parsed snippets; this holds what was pasted.
+    raw_paste: Mapped[str | None] = mapped_column(Text)
+
     # server_default=func.now() means Postgres fills this in, not Python.
     # One less thing that can be wrong if a clock drifts.
     fetched_at: Mapped[datetime] = mapped_column(
