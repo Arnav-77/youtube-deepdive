@@ -8,10 +8,15 @@ layer is broken.
 
 import re
 
+import httpx
 from sqlalchemy.orm import Session
 from youtube_transcript_api import YouTubeTranscriptApi
 
 from app.models import Video
+
+# YouTube's public oEmbed endpoint: returns a video's title as JSON, no key.
+OEMBED_URL = "https://www.youtube.com/oembed"
+OEMBED_TIMEOUT_S = 5.0
 
 # Matches a YouTube video id: exactly 11 chars of letters, digits,
 # underscore and hyphen. YouTube ids are opaque strings, so we match on
@@ -78,6 +83,31 @@ def fetch_transcript(video_id: str) -> tuple[list[dict], str]:
     return transcript.to_raw_data(), "captions"
 
 
+def fetch_title(video_id: str) -> str | None:
+    """Return the video's title from YouTube's oEmbed endpoint, or None.
+
+    Never raises. A title is decoration: if the lookup fails for any reason
+    (network, a private or deleted video, an unexpected response), the caller
+    keeps the title NULL and carries on. The reason goes to stdout, where
+    Render's logs and the backfill script both show it.
+    """
+    watch_url = f"https://www.youtube.com/watch?v={video_id}"
+    try:
+        response = httpx.get(
+            OEMBED_URL,
+            params={"url": watch_url, "format": "json"},
+            timeout=OEMBED_TIMEOUT_S,
+        )
+        if response.status_code != 200:
+            print(f"title lookup for {video_id} returned HTTP {response.status_code}")
+            return None
+        title = response.json().get("title")
+    except Exception as exc:
+        print(f"title lookup for {video_id} failed: {type(exc).__name__}")
+        return None
+    return title.strip() if isinstance(title, str) and title.strip() else None
+
+
 def ingest_video(session: Session, url_or_id: str) -> Video:
     """Fetch a video's transcript and store it. Returns the stored row.
 
@@ -94,6 +124,9 @@ def ingest_video(session: Session, url_or_id: str) -> Video:
 
     raw_transcript, source = fetch_transcript(video_id)
 
+    # Title from oEmbed. Never fails ingestion: fetch_title returns None on any error.
+    title = fetch_title(video_id)
+
     # Duration = where the last snippet ends. Approximate, because caption
     # timings don't necessarily run to the end of the video, but good
     # enough for "roughly how long is this" and it costs no extra API call.
@@ -104,10 +137,7 @@ def ingest_video(session: Session, url_or_id: str) -> Video:
 
     video = Video(
         video_id=video_id,
-        # Title is not available from the transcript API. Left null rather
-        # than pulling in another dependency to scrape it -- revisit if the
-        # frontend needs it.
-        title=None,
+        title=title,
         source=source,
         raw_transcript=raw_transcript,
         duration_seconds=duration,
