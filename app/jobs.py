@@ -21,11 +21,32 @@ workers, each would have its own set and could run the same video twice.
 
 import threading
 
+from sqlalchemy import text
+
 from app.db import SessionLocal
-from app.embeddings import embed_missing_chunks
+from app.embeddings import MODEL_KEY, embed_missing_chunks
 
 _lock = threading.Lock()
 _running: set[str] = set()
+
+# One round trip: every chunk of this video and run, and how many have an
+# embedding for the current model. count(e.chunk_id) skips the NULLs that the
+# LEFT JOIN gives for missing embeddings.
+_PROGRESS_SQL = text("""
+    SELECT count(*) AS total, count(e.chunk_id) AS embedded
+    FROM chunks c
+    LEFT JOIN chunk_embeddings e ON e.chunk_id = c.id AND e.model = :model
+    WHERE c.video_id = :video_id AND c.chunking_run = :run
+""")
+
+
+def progress(session, video_id: str, chunking_run: str) -> tuple[int, int]:
+    """(total chunks, chunks with an embedding). Counts only, never text."""
+    row = session.execute(
+        _PROGRESS_SQL,
+        {"model": MODEL_KEY, "video_id": video_id, "run": chunking_run},
+    ).one()
+    return int(row.total), int(row.embedded)
 
 
 def is_running(video_id: str) -> bool:

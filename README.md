@@ -277,6 +277,7 @@ Copy `.env.example` to `.env` and fill in:
 - `GEMINI_MODEL=gemini/gemini-3.6-flash` (optional; this is the default)
 - `FALLBACK_MODELS=gemini/gemini-3.5-flash-lite` (optional, comma separated)
 - `RETRIEVAL_METHOD=dense` (optional; `dense` or `lexical`, checked at startup)
+- `PASTE_TOKEN=...` (optional; enables `POST /videos/paste`. Unset means paste answers 503 and the app still starts. Set it only in Render's environment or local `.env`, never in code or the repo)
 
 
 The `postgresql+psycopg://` prefix matters. Plain `postgresql://` makes
@@ -319,6 +320,8 @@ docker run --env-file .env -p 8000:8000 --cpus=0.1 --memory=512m deepdive
 | GET | `/ready` | Readiness. Checks the database. |
 | POST | `/videos` | Add a video: fetch transcript, chunk, embed, store. Repeating it finishes an interrupted embedding. |
 | POST | `/ask` | Ask a question about an added video. Returns 404 if the video has not been added. |
+| POST | `/videos/paste` | Add a video from a transcript pasted from YouTube's "Show transcript" panel. Needs the `X-Paste-Token` header. Returns 202 while embedding runs in the background; send the same request again to resume. |
+| GET | `/videos/{id}` | Progress for one video: `status` (`ready`, `embedding`, `incomplete`, `not_found`), `chunk_count`, `embedded_count`. Counts only, no transcript text. |
 
 `/health` deliberately checks nothing external. A health check that fails on a
 transient database blip makes the platform restart the application, which fixes

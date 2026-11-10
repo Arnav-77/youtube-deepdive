@@ -1,5 +1,17 @@
 # Design decisions
 
+## 10 Nov 2026: the paste route's status codes, the progress route, and the panel's real layout
+
+**Decision.** POST /videos/paste returns 202 while embedding is pending and 200 once every chunk is embedded. Resending the same paste to a video that exists resumes it, and a different paste gets 409. A body over the size limit is 422, not 413, so the codes match rule 6. The raw body limit is 2 x 300 KB + 4 KB, because JSON escaping can double newlines and quotes; the transcript itself is checked separately. GET /videos/{id} is public and returns counts only.
+
+**Why.** The caller needs one status family for every input problem (rule 6), and "200 means done" is what a person checking progress expects. Counts only means the progress route cannot leak transcript text.
+
+**The panel's real layout (checked 10 Nov on a real copy, by shape only).** The copy puts each timestamp and its words on one line, with fractional seconds glued to the seconds ("0:045" is 4.5 s), and it includes "Chapter N:" title lines. The first version of the parser assumed the timestamp sat alone on its own line and rejected the real copy. The parser now accepts both layouts. On the sample: 133 segments, first 0:00, last 17:06, timestamps never go backwards.
+
+**Alternatives considered.**
+- 413 for an oversized body. Rejected: rule 6 says 422 for invalid input, and one family is easier to explain.
+- Keep the progress route behind the token. Rejected: it is needed after a paste, and it carries no transcript text.
+
 ## 10 Nov 2026: a missing PASTE_TOKEN disables paste without stopping the app (refines rule 7)
 
 **Decision.** Rule 7 says invalid configuration stops the app at startup. An unset PASTE_TOKEN is not invalid configuration; it is a missing optional feature. So the app starts, prints one line saying paste is disabled, and POST /videos/paste answers 503 "paste is disabled on this server" before it reads the body. The app still fails closed: with no token configured, no paste is accepted. A token that is set but wrong gets 401. The token value is never printed.

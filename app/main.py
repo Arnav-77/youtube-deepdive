@@ -1,19 +1,26 @@
 """DeepDive API — Phase 02 skeleton."""
 
+import hmac
+import json
 import os
 
-from fastapi import Depends, FastAPI, Response ,HTTPException
+from fastapi import Depends, FastAPI, Request, Response, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel , Field
 from app.chunking import store_chunks
 from app.youtube import ingest_video
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 import time
 
 from app.chunking import DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP, chunking_run_label
 from app.generation import PROMPT_VERSION, cited_numbers, generate
 from app.embeddings import EmbeddingError, embed_missing_chunks
-from app.models import QueryLog
+from app.jobs import derive_status, is_running, progress, start_embedding
+from app.models import QueryLog, Video
+from app.paste import MAX_PASTE_BYTES, PasteError, PasteTooLarge, ParsedPaste, parse_paste, read_limited
 from app.retrieval import (
     DEFAULT_TOP_K,
     MissingEmbeddings,
@@ -203,6 +210,176 @@ def ingest(payload: IngestRequest, session: Session = Depends(get_session)):
         chunking_run=chunks[0].chunking_run if chunks else "",
         embedded_count=embedded,
     )
+
+
+# --- pasted transcripts ------------------------------------------------------
+#
+# A person copies the transcript from YouTube's "Show transcript" panel and
+# pastes it here, because YouTube blocks the server from fetching captions.
+# The paste is untrusted public input. See docs/decisions.md (10 Nov 2026).
+
+# JSON escaping doubles some characters (quotes, newlines), so the raw request
+# body can be a little larger than the transcript limit. The transcript itself
+# is checked again by parse_paste.
+PASTE_BODY_LIMIT = 2 * MAX_PASTE_BYTES + 4096
+PASTE_DISABLED_DETAIL = "paste is disabled on this server"
+PASTE_RESUME_MESSAGE = (
+    "Embedding runs in the background. Check progress at progress_url. "
+    "If the server restarts, send this same request again: it embeds only "
+    "the missing chunks."
+)
+
+
+def _store_paste(
+    session: Session, video_id: str, transcript: str, parsed: ParsedPaste
+) -> tuple[int, dict]:
+    """Store a pasted video, or resume one. Returns (status code, body).
+
+    Runs in a worker thread (it does blocking database work), so the event
+    loop is not held while it runs.
+    """
+    run = chunking_run_label(DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP)
+
+    video = session.get(Video, video_id)
+    if video is None:
+        last = parsed.snippets[-1]
+        video = Video(
+            video_id=video_id,
+            title=None,
+            source="pasted",
+            raw_transcript=parsed.snippets,
+            raw_paste=transcript,
+            duration_seconds=int(last["start"] + last["duration"]),
+        )
+        session.add(video)
+        try:
+            session.commit()
+        except IntegrityError:
+            # Two requests for the same new video raced. The other one won.
+            session.rollback()
+            return 409, {
+                "video_id": video_id,
+                "status": "conflict",
+                "message": "this video is being added by another request; try again shortly",
+            }
+    elif video.raw_paste != transcript:
+        # Covers a captions video too: its raw_paste is NULL. Never ignore
+        # pasted text silently.
+        return 409, {
+            "video_id": video_id,
+            "status": "conflict",
+            "message": "a different transcript is already stored for this video",
+        }
+
+    # Chunks are append-only and store_chunks returns existing rows untouched,
+    # so resending the same paste never re-chunks.
+    store_chunks(session, video)
+
+    total, embedded = progress(session, video_id, run)
+    if not (total > 0 and embedded == total):
+        start_embedding(video_id, run)
+    status = derive_status(True, total, embedded, is_running(video_id))
+
+    body = {
+        "video_id": video_id,
+        "status": status,
+        "source": video.source,
+        "chunk_count": total,
+        "embedded_count": embedded,
+        "progress_url": f"/videos/{video_id}",
+        "skipped_chapter_lines": parsed.skipped_chapter_lines,
+    }
+    if status == "ready":
+        body["message"] = "Every chunk is embedded. Questions use meaning search."
+        return 200, body
+    body["message"] = PASTE_RESUME_MESSAGE
+    return 202, body
+
+
+@app.post("/videos/paste")
+async def paste_video(request: Request, session: Session = Depends(get_session)):
+    """Add a video by pasting its transcript from YouTube's panel.
+
+    Body: {"url": "...", "transcript": "..."}. Header: X-Paste-Token.
+
+    Order of checks, cheapest first, and why:
+      503 if no token is configured (fails closed; nothing is read).
+      401 for a missing or wrong token (nothing is read).
+      422 for a body over the size limit, not JSON, or a transcript that
+          breaks a rule. 400 for an unreadable URL.
+    The token is compared in constant time and is never echoed back.
+    """
+    if not PASTE_TOKEN:
+        raise HTTPException(status_code=503, detail=PASTE_DISABLED_DETAIL)
+
+    provided = request.headers.get("x-paste-token", "")
+    if not hmac.compare_digest(provided.encode("utf-8"), PASTE_TOKEN.encode("utf-8")):
+        raise HTTPException(status_code=401, detail="missing or wrong X-Paste-Token header")
+
+    try:
+        raw = await read_limited(request.stream(), PASTE_BODY_LIMIT)
+    except PasteTooLarge as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="body must be JSON with url and transcript")
+    if (
+        not isinstance(body, dict)
+        or not isinstance(body.get("url"), str)
+        or not isinstance(body.get("transcript"), str)
+        or len(body["url"]) > 200
+    ):
+        raise HTTPException(status_code=422, detail="body must be JSON with url and transcript")
+
+    try:
+        video_id = extract_video_id(body["url"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    try:
+        parsed = parse_paste(body["transcript"])
+    except PasteError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    code, payload = await run_in_threadpool(
+        _store_paste, session, video_id, body["transcript"], parsed
+    )
+    return JSONResponse(payload, status_code=code)
+
+
+@app.get("/videos/{video_id}")
+def video_progress(video_id: str, session: Session = Depends(get_session)):
+    """How far embedding has got for one video. Counts only: no transcript text.
+
+    Public on purpose: it reveals nothing a person could not learn by asking
+    a question, and it is what a person checks after pasting.
+    """
+    try:
+        vid = extract_video_id(video_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    run = chunking_run_label(DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP)
+    # Select only the source column: loading the row would drag the whole
+    # stored transcript out of the database on every progress check.
+    source = session.execute(
+        text("SELECT source FROM videos WHERE video_id = :v"), {"v": vid}
+    ).scalar()
+    if source is None:
+        return JSONResponse(
+            {"video_id": vid, "status": "not_found"}, status_code=404
+        )
+
+    total, embedded = progress(session, vid, run)
+    return {
+        "video_id": vid,
+        "status": derive_status(True, total, embedded, is_running(vid)),
+        "source": source,
+        "chunk_count": total,
+        "embedded_count": embedded,
+    }
 class AskRequest(BaseModel):
     """A question about one video.
 
