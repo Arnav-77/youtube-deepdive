@@ -1,5 +1,20 @@
 # Design decisions
 
+## 10 Nov 2026: titles come from YouTube's oEmbed endpoint, and a missing title is NULL, never an error
+
+**Decision.** A video's title is fetched from YouTube's public oEmbed endpoint (`https://www.youtube.com/oembed`, no key). It is fetched at ingestion, after the transcript succeeds, and by `evaluation/backfill_titles.py` for videos that have none. Any failure leaves the title NULL and the ingestion goes on. The page shows the title under each thumbnail and falls back to the video id. The backfill script is a dry run unless given `--write`.
+
+**Why.** The `videos.title` column had existed since the first migration and was never filled, so the page could only show ids. oEmbed needs no key and no new package: `httpx` is already pinned. A title is decoration, so it must never cost a video its transcript, and a failed lookup prints its reason to the logs rather than raising.
+
+**Alternatives considered.**
+- Scrape the watch page for the title. Rejected: it depends on page markup that can change without notice, and oEmbed is the documented route.
+- Use the YouTube Data API. Rejected: it needs a key and a quota, and CLAUDE.md asks before any hosted service.
+- Fail ingestion when the title lookup fails. Rejected: a transcript is the expensive part, and a title is not worth losing one over.
+- Backfill with an automatic write. Rejected: the production `videos` table is written only when the owner runs `--write`, after reading the dry-run output.
+- Page size and paging on the server. Rejected for 23 videos: the page pages the one `/videos` response, so no page parameter exists.
+
+**Consequences.** Ingestion now makes one more outbound request, to YouTube's oEmbed endpoint. It is not yet verified from Render, which YouTube already blocks for transcripts, so a live ingest may keep the title NULL until the backfill runs from the laptop. The backfill spaces its requests a second apart, one video at a time, to stay within YouTube's rate limits.
+
 ## 10 Nov 2026: the web page is one static file served by the API, at /ui/
 
 **Decision.** The web page is one HTML file (`app/static/index.html`, inline CSS and JS, no build step) served by FastAPI at `/ui/` from the same origin as the API. It uses two endpoints: `GET /videos` to list the videos `/ask` can answer, and `POST /ask`. Each video shows a YouTube thumbnail, loaded by the visitor's browser, next to its id. `GET /` stays JSON for Render's probe and now includes `"ui": "/ui/"`. The branch's commits do not use `[skip render]`, because Render deploys the newest pushed commit and a skip would leave the page undeployed.
