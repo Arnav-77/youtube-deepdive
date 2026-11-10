@@ -10,3 +10,5 @@ __pycache__/
 evaluation/answers/
 # A real copied transcript, kept on this machine only. The repo is public.
 tests/local_sample_paste.txt
+# Real copied transcripts (both samples), kept on this machine only. The repo is public.
+tests/local_sample_paste*.txt
