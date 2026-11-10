@@ -48,6 +48,13 @@ def test_page_loads_nothing_from_outside_the_server(page_html):
     assert "https://img.youtube.com/vi/" in page_html
 
 
+def test_page_styles_are_plain_css_with_no_imports_or_outside_files(page_html):
+    # Plain CSS only: no @import, no url() pointing at another host or font service.
+    assert "@import" not in page_html
+    assert not re.search(r"url\(\s*['\"]?https?:", page_html)
+    assert "fonts.googleapis" not in page_html
+
+
 def test_page_calls_the_two_api_endpoints_on_its_own_origin(page_html):
     assert 'fetch("/videos")' in page_html
     assert 'fetch("/ask"' in page_html
@@ -64,6 +71,29 @@ def test_selected_video_is_searched_for_on_the_whole_page(page_html):
 def test_no_video_is_selected_by_default(page_html):
     # The visitor picks a video; the page does not choose one for them.
     assert "radio.checked" not in page_html
+
+
+def test_page_shows_five_videos_per_page_with_previous_and_next(page_html):
+    assert "const PAGE_SIZE = 5;" in page_html
+    assert 'id="prev"' in page_html and ">Previous</button>" in page_html
+    assert 'id="next"' in page_html and ">Next</button>" in page_html
+
+
+def test_paging_uses_the_one_videos_response_and_no_server_paging(page_html):
+    # The whole list comes in one request. No page or offset parameter is sent.
+    assert page_html.count('fetch("/videos")') == 1
+    assert 'fetch("/videos?' not in page_html
+    assert "offset=" not in page_html  # a query parameter, not CSS outline-offset
+    assert "page=" not in page_html    # likewise: no page number sent to the server
+
+
+def test_title_is_shown_under_the_thumbnail_with_the_id_as_fallback(page_html):
+    assert "video.title" in page_html
+    assert "el(\"code\", {}, id)" in page_html  # the id, when there is no title
+
+
+def test_thumbnails_load_lazily(page_html):
+    assert 'loading: "lazy"' in page_html
 
 
 def test_page_gives_the_question_the_server_limit(page_html):

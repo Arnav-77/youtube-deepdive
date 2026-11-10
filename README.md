@@ -345,6 +345,7 @@ nothing and drops in-flight requests.
 | `evaluation/run_eval.py` | Retrieval harness: Recall@k, MRR, citation offset |
 | `evaluation/explain_query.py` | How every chunk ranked for one question, and why |
 | `evaluation/embed_chunks.py` | Resumable embedding backfill for existing chunks |
+| `evaluation/backfill_titles.py` | Fills missing video titles from YouTube's oEmbed endpoint. Dry run unless `--write` |
 
 
 ## Running the tests
@@ -386,6 +387,19 @@ comparing two strategies a matter of changing one argument. `--method lexical`,
 `dense` or `hybrid` selects the retrieval method (default `lexical`, the
 original baseline). Question embeddings are cached, so repeat runs make no
 embedding calls.
+
+### Filling in video titles
+
+Titles come from YouTube's public oEmbed endpoint, at ingestion and from this
+script. A video whose lookup fails keeps a NULL title, and the page shows its id.
+
+```bash
+python evaluation/backfill_titles.py          # dry run: prints id and title, writes nothing
+python evaluation/backfill_titles.py --write  # writes titles to the database .env points at
+```
+
+Only videos with no title are looked up, one at a time, with a second's pause
+between requests.
 
 ## Notes for contributors
 
