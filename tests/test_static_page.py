@@ -48,6 +48,13 @@ def test_page_loads_nothing_from_outside_the_server(page_html):
     assert "https://img.youtube.com/vi/" in page_html
 
 
+def test_page_styles_are_plain_css_with_no_imports_or_outside_files(page_html):
+    # Plain CSS only: no @import, no url() pointing at another host or font service.
+    assert "@import" not in page_html
+    assert not re.search(r"url\(\s*['\"]?https?:", page_html)
+    assert "fonts.googleapis" not in page_html
+
+
 def test_page_calls_the_two_api_endpoints_on_its_own_origin(page_html):
     assert 'fetch("/videos")' in page_html
     assert 'fetch("/ask"' in page_html

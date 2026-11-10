@@ -5,82 +5,249 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>YouTube Deep-Dive</title>
 <style>
-  /* Inline on purpose: one file, no build step, no outside stylesheet. */
-  body {
-    font-family: system-ui, sans-serif;
-    line-height: 1.5;
-    max-width: 42rem;
-    margin: 0 auto;
-    padding: 16px;
+  /* Inline on purpose: one file, no build step, no outside stylesheet or font.
+     Colours are tokens here; dark mode swaps the tokens, not the rules. */
+  :root {
+    --bg: #f6f5f2;
+    --card: #ffffff;
+    --fg: #1c1c1e;
+    --muted: #6b6b70;
+    --border: #d9d6cf;
+    --accent: #1d5fd1;
+    --on-accent: #ffffff;
+    --tint: #e9f0fc;
+    --error: #b3261e;
   }
-  h1 { font-size: 1.4rem; margin-bottom: 0.2rem; }
-  h2 { font-size: 1.1rem; margin-top: 1.5rem; }
-  .muted { opacity: 0.7; }
-  .error { color: #b00020; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141418;
+      --card: #1e1e24;
+      --fg: #ececf1;
+      --muted: #9a9aa3;
+      --border: #3a3a44;
+      --accent: #7aa7ff;
+      --on-accent: #0b0b0e;
+      --tint: #22304a;
+      --error: #ff8a80;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141418;
+    --card: #1e1e24;
+    --fg: #ececf1;
+    --muted: #9a9aa3;
+    --border: #3a3a44;
+    --accent: #7aa7ff;
+    --on-accent: #0b0b0e;
+    --tint: #22304a;
+    --error: #ff8a80;
+  }
 
-  /* Videos are a compact grid: each cell is a small thumbnail over its id.
-     auto-fill makes as many columns as fit, so a phone gets two or three. */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  /* One centred column, so the page reads the same on a phone and a laptop. */
+  .column { max-width: 40rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  .lede { margin: 0 0 20px; color: var(--muted); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .muted { color: var(--muted); }
+  .error { color: var(--error); }
+
+  /* The question box, with the chosen video shown above it. */
+  .chosen {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    min-height: 64px;
+    padding: 10px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    background: var(--tint);
+  }
+  .chosen img {
+    width: 120px;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 4px;
+    flex: none;
+  }
+  .chosen code { word-break: break-all; }
+
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  textarea {
+    display: block;
+    width: 100%;
+    min-height: 5rem;
+    padding: 10px 12px;
+    font: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  button {
+    font: inherit;
+    font-weight: 600;
+    padding: 10px 20px;
+    color: var(--on-accent);
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: progress; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Loading: a small spinner. Slower when the visitor prefers less motion. */
+  .spinner {
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    margin-right: 0.5em;
+    vertical-align: -0.1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+
+  /* The answer. pre-wrap keeps the paragraph breaks the model wrote. */
+  .answer-text { white-space: pre-wrap; margin-top: 16px; }
+  .meta { margin: 12px 0 0; font-size: 0.85rem; color: var(--muted); }
+
+  /* Citations: small pill buttons, "▶ 0:51", each opening the video at that moment. */
+  a.cite {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    margin: 0 0.15em;
+    padding: 0 0.6em;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    color: var(--accent);
+    font-size: 0.85em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  a.cite:hover, a.cite:focus-visible { background: var(--accent); color: var(--on-accent); }
+  a.cite:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* The video list: a compact grid. auto-fill fits as many columns as the width allows. */
   #videos {
     list-style: none;
-    padding: 0;
     margin: 0;
+    padding: 0;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 8px;
+    gap: 10px;
   }
+  #videos li { position: relative; }
+  #videos input { position: absolute; opacity: 0; pointer-events: none; }
   #videos label {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    border: 1px solid #8886;
-    border-radius: 8px;
+    gap: 6px;
+    height: 100%;
+    margin: 0;
     padding: 6px;
-    cursor: pointer;
+    font-weight: 400;
     font-size: 0.85rem;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
   }
-  #videos label:has(input:checked) { border-color: currentColor; border-width: 2px; }
-  #videos input { position: absolute; opacity: 0; }
+  #videos label:hover { border-color: var(--muted); }
+  #videos label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* The selected card: accent border, tinted background, and a "Selected" badge. */
+  #videos label:has(input:checked) {
+    border-color: var(--accent);
+    background: var(--tint);
+  }
+  #videos label:has(input:checked)::after {
+    content: "Selected";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 0 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--on-accent);
+    background: var(--accent);
+    border-radius: 999px;
+  }
   #videos img {
     width: 100%;
     height: auto;
     aspect-ratio: 16 / 9;
     object-fit: cover;
-    border-radius: 4px;
-    background: #8883;
+    border-radius: 6px;
+    background: var(--border);
   }
   #videos code { word-break: break-all; }
-  #videos .title { display: block; }
+  #videos .title { display: block; font-weight: 600; }
 
-  textarea {
-    width: 100%;
-    box-sizing: border-box;
-    min-height: 4rem;
-    font: inherit;
-    padding: 8px;
+  @media (max-width: 480px) {
+    .chosen img { width: 96px; }
   }
-  button { font: inherit; padding: 8px 16px; }
-
-  /* pre-wrap keeps the paragraph breaks the model wrote. */
-  #answer { white-space: pre-wrap; margin-top: 1rem; }
-  a.cite { margin-left: 2px; }
 </style>
 </head>
 <body>
-<h1>YouTube Deep-Dive</h1>
-<p class="muted">Pick a video, ask a question, then follow the links to the moment in the video that supports each claim.</p>
+<main class="column">
+  <header>
+    <h1>YouTube Deep-Dive</h1>
+    <p class="lede">Pick a video, ask a question, then follow the links to the moment in the video that supports each claim.</p>
+  </header>
 
-<h2>Question</h2>
-<form id="ask-form">
-  <label for="question">Your question</label>
-  <textarea id="question" maxlength="500" required></textarea>
-  <p><button type="submit" id="ask-button">Ask</button></p>
-</form>
-<p id="status" class="muted" role="status"></p>
-<div id="answer" aria-live="polite"></div>
+  <section class="card" aria-labelledby="ask-heading">
+    <h2 id="ask-heading">Ask about a video</h2>
+    <div id="chosen" class="chosen"></div>
+    <form id="ask-form">
+      <label for="question">Your question</label>
+      <textarea id="question" maxlength="500" required></textarea>
+      <div class="row">
+        <button type="submit" id="ask-button">Ask</button>
+        <span id="status" class="muted" role="status"></span>
+      </div>
+    </form>
+    <div id="answer" aria-live="polite"></div>
+  </section>
 
-<h2>Choose a video</h2>
-<p id="videos-status" class="muted">Loading videos...</p>
-<ul id="videos"></ul>
+  <section class="card" aria-labelledby="videos-heading">
+    <h2 id="videos-heading">Choose a video</h2>
+    <p id="videos-status" class="muted">Loading videos...</p>
+    <ul id="videos"></ul>
+  </section>
+</main>
 
 <script>
 "use strict";
@@ -114,25 +281,41 @@ function mmss(seconds) {
   return `${minutes}:${secs}`;
 }
 
-function videoRow(video) {
-  const thumb = el("img", {
-    src: thumbnailUrl(video.video_id),
+function thumbnail(id, size) {
+  const img = el("img", {
+    src: thumbnailUrl(id),
     alt: "",
-    width: "160",
-    height: "90",
+    width: size.width,
+    height: size.height,
     loading: "lazy",
   });
   // If YouTube has no thumbnail for a video, drop the picture and keep the id.
-  thumb.addEventListener("error", () => thumb.remove());
+  img.addEventListener("error", () => img.remove());
+  return img;
+}
 
+// Shows the chosen video above the question box, so the visitor can see what
+// they are asking about without scrolling back to the list.
+function showChosen(id) {
+  const box = document.getElementById("chosen");
+  if (!id) {
+    box.replaceChildren(el("p", { className: "muted" }, "No video chosen yet. Pick one below."));
+    return;
+  }
+  box.replaceChildren(thumbnail(id, { width: "120", height: "68" }), el("code", {}, id));
+}
+
+function videoRow(video) {
   // No video is selected until the visitor picks one.
   const radio = el("input", { type: "radio", name: "video", value: video.video_id });
-
   const text = [];
   if (video.title) text.push(el("span", { className: "title" }, video.title));
   text.push(el("code", {}, video.video_id));
-
-  return el("li", {}, el("label", {}, radio, thumb, el("span", {}, ...text)));
+  return el(
+    "li",
+    {},
+    el("label", {}, radio, thumbnail(video.video_id, { width: "160", height: "90" }), el("span", {}, ...text)),
+  );
 }
 
 async function loadVideos() {
@@ -165,11 +348,19 @@ function renderAnswer(data) {
     const number = Number(match[1]);
     const citation = byNumber.get(number);
     if (citation) {
+      const time = mmss(citation.start_seconds);
       nodes.push(
         el(
           "a",
-          { href: citation.url, target: "_blank", rel: "noopener", className: "cite" },
-          `[${number} ${mmss(citation.start_seconds)}]`,
+          {
+            href: citation.url,
+            target: "_blank",
+            rel: "noopener",
+            className: "cite",
+            title: `Open the video at ${time}`,
+            "aria-label": `Watch from ${time}`,
+          },
+          `▶ ${time}`,
         ),
       );
     } else {
@@ -179,6 +370,15 @@ function renderAnswer(data) {
   }
   nodes.push(document.createTextNode(data.answer.slice(last)));
   return nodes;
+}
+
+// The line under the answer: which model answered, and how long it took.
+function answerMeta(data) {
+  const seconds = (data.latency_ms / 1000).toFixed(1);
+  const text = data.model
+    ? `Answered by ${data.model} in ${seconds} s`
+    : `Answered in ${seconds} s`;
+  return el("p", { className: "meta" }, text);
 }
 
 function errorMessage(status, data) {
@@ -208,9 +408,14 @@ async function ask(event) {
     return;
   }
 
+  // Loading state: the button stays disabled until the answer (or an error) arrives.
   button.disabled = true;
+  button.textContent = "Thinking…";
   status.className = "muted";
-  status.textContent = "Asking... this can take a few seconds.";
+  status.replaceChildren(
+    el("span", { className: "spinner", "aria-hidden": "true" }),
+    "Thinking… usually 4 to 30 seconds.",
+  );
   answer.replaceChildren();
 
   try {
@@ -228,16 +433,21 @@ async function ask(event) {
     if (!response.ok) throw new Error(errorMessage(response.status, data));
 
     status.textContent = "";
-    answer.replaceChildren(...renderAnswer(data));
+    answer.replaceChildren(el("div", { className: "answer-text" }, ...renderAnswer(data)), answerMeta(data));
   } catch (err) {
     status.className = "error";
     status.textContent = err.message;
   } finally {
     button.disabled = false;
+    button.textContent = "Ask";
   }
 }
 
 document.getElementById("ask-form").addEventListener("submit", ask);
+document.getElementById("videos").addEventListener("change", (event) => {
+  if (event.target.name === "video") showChosen(event.target.value);
+});
+showChosen(null);
 loadVideos();
 </script>
 </body>
