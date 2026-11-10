@@ -3,6 +3,7 @@
 import hmac
 import json
 import os
+import threading
 
 from fastapi import Depends, FastAPI, Request, Response, HTTPException
 from fastapi.responses import JSONResponse
@@ -15,7 +16,8 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 import time
 
-from app.chunking import DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP, chunking_run_label
+from app.chunking import DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP, chunk_transcript, chunking_run_label
+from app.limits import load_daily_cap, load_hidden_ids, public_paste_refusal, visitor_chunks_last_24h
 from app.generation import PROMPT_VERSION, cited_numbers, generate
 from app.embeddings import EmbeddingError, embed_missing_chunks
 from app.jobs import derive_status, is_running, progress, start_embedding
@@ -50,14 +52,21 @@ if RETRIEVAL_METHOD not in {"dense", "lexical"}:
         f"RETRIEVAL_METHOD must be 'dense' or 'lexical', got {RETRIEVAL_METHOD!r}"
     )
 
-# Paste is an OPTIONAL feature, so a missing token does not stop the app: /ask
-# must still start. It fails closed instead: with no token, POST /videos/paste
-# answers 503 and accepts nothing. The token is never printed.
+# Pasting is public. PASTE_TOKEN is an ADMIN override: a request that sends the
+# right X-Paste-Token skips the public limits (see app/limits.py). Without a
+# token configured, everyone is a visitor and the limits apply. The token value
+# is never printed.
 PASTE_TOKEN = os.getenv("PASTE_TOKEN", "").strip()
+# Daily cap on chunks stored for visitor pastes. Bad value stops the app.
+PUBLIC_DAILY_CHUNKS = load_daily_cap(os.getenv("PUBLIC_PASTE_DAILY_CHUNKS"))
+# Videos the owner hides without deleting: removed from listings, /ask returns
+# 404 for them. Bad value stops the app. Chunks are never changed.
+HIDDEN_IDS = load_hidden_ids(os.getenv("HIDDEN_VIDEO_IDS"))
 if PASTE_TOKEN:
-    print("paste: enabled, POST /videos/paste requires the X-Paste-Token header")
+    print("paste: public, with an admin token that skips the public limits")
 else:
-    print("paste: disabled, PASTE_TOKEN is not set; POST /videos/paste returns 503")
+    print(f"paste: public, limits apply (no admin token set; {PUBLIC_DAILY_CHUNKS} chunks/day)")
+print(f"hidden videos: {len(HIDDEN_IDS)}")
 
 # On the request path the question's embedding gets one try with a short
 # timeout. The batch script can afford five patient retries; a person waiting
@@ -216,22 +225,35 @@ def ingest(payload: IngestRequest, session: Session = Depends(get_session)):
 #
 # A person copies the transcript from YouTube's "Show transcript" panel and
 # pastes it here, because YouTube blocks the server from fetching captions.
-# The paste is untrusted public input. See docs/decisions.md (10 Nov 2026).
+# Pasting is public. Visitors get the limits in app/limits.py; a request with
+# the admin token skips them. See docs/decisions.md (10 Nov 2026).
 
 # JSON escaping doubles some characters (quotes, newlines), so the raw request
 # body can be a little larger than the transcript limit. The transcript itself
 # is checked again by parse_paste.
 PASTE_BODY_LIMIT = 2 * MAX_PASTE_BYTES + 4096
-PASTE_DISABLED_DETAIL = "paste is disabled on this server"
 PASTE_RESUME_MESSAGE = (
     "Embedding runs in the background. Check progress at progress_url. "
     "If the server restarts, send this same request again: it embeds only "
     "the missing chunks."
 )
+# One paste at a time. The check against the daily cap and the write that
+# uses it must be atomic, or two visitors could both pass the same headroom.
+# A single worker process makes an in-memory lock enough.
+_paste_lock = threading.Lock()
+
+
+def _added_by_label(source: str, added_by: str | None) -> str:
+    """'captions', 'admin' or 'visitor'. Unknown or missing counts as visitor."""
+    if source == "captions":
+        return "captions"
+    if added_by == "admin":
+        return "admin"
+    return "visitor"
 
 
 def _store_paste(
-    session: Session, video_id: str, transcript: str, parsed: ParsedPaste
+    session: Session, video_id: str, transcript: str, parsed: ParsedPaste, admin: bool
 ) -> tuple[int, dict]:
     """Store a pasted video, or resume one. Returns (status code, body).
 
@@ -240,50 +262,72 @@ def _store_paste(
     """
     run = chunking_run_label(DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP)
 
-    video = session.get(Video, video_id)
-    if video is None:
-        last = parsed.snippets[-1]
-        video = Video(
-            video_id=video_id,
-            title=None,
-            source="pasted",
-            raw_transcript=parsed.snippets,
-            raw_paste=transcript,
-            duration_seconds=int(last["start"] + last["duration"]),
-        )
-        session.add(video)
-        try:
-            session.commit()
-        except IntegrityError:
-            # Two requests for the same new video raced. The other one won.
-            session.rollback()
-            return 409, {
-                "video_id": video_id,
-                "status": "conflict",
-                "message": "this video is being added by another request; try again shortly",
-            }
-    elif video.raw_paste != transcript:
-        # Covers a captions video too: its raw_paste is NULL. Never ignore
-        # pasted text silently.
+    if video_id in HIDDEN_IDS:
         return 409, {
             "video_id": video_id,
             "status": "conflict",
-            "message": "a different transcript is already stored for this video",
+            "message": "this video has been hidden and cannot be added again",
         }
 
-    # Chunks are append-only and store_chunks returns existing rows untouched,
-    # so resending the same paste never re-chunks.
-    store_chunks(session, video)
+    with _paste_lock:
+        video = session.get(Video, video_id)
+        if video is None:
+            # Visitors: refuse before anything is written if the paste is too
+            # big, or would take the daily total over the cap. Admin skips both.
+            if not admin:
+                chunk_count = len(chunk_transcript(parsed.snippets))
+                used = visitor_chunks_last_24h(session)
+                refusal = public_paste_refusal(chunk_count, used, PUBLIC_DAILY_CHUNKS)
+                if refusal is not None:
+                    code, message = refusal
+                    return code, {"video_id": video_id, "status": "refused", "message": message}
 
-    total, embedded = progress(session, video_id, run)
-    if not (total > 0 and embedded == total):
-        start_embedding(video_id, run)
-    status = derive_status(True, total, embedded, is_running(video_id))
+            last = parsed.snippets[-1]
+            video = Video(
+                video_id=video_id,
+                title=None,
+                source="pasted",
+                added_by="admin" if admin else "visitor",
+                raw_transcript=parsed.snippets,
+                raw_paste=transcript,
+                duration_seconds=int(last["start"] + last["duration"]),
+            )
+            session.add(video)
+            try:
+                session.commit()
+            except IntegrityError:
+                # Another request added the same video between our read and
+                # our write. Cannot happen under the lock today; kept as a guard.
+                session.rollback()
+                return 409, {
+                    "video_id": video_id,
+                    "status": "conflict",
+                    "message": "this video is being added by another request; try again shortly",
+                }
+        elif video.raw_paste != transcript:
+            # Covers a captions video too: its raw_paste is NULL. Never ignore
+            # pasted text silently.
+            return 409, {
+                "video_id": video_id,
+                "status": "conflict",
+                "message": "a different transcript is already stored for this video",
+            }
+
+        # Chunks are append-only and store_chunks returns existing rows untouched,
+        # so resending the same paste never re-chunks, and resuming never counts
+        # against the daily cap again.
+        store_chunks(session, video)
+
+        total, embedded = progress(session, video_id, run)
+        if not (total > 0 and embedded == total):
+            start_embedding(video_id, run)
+        status = derive_status(True, total, embedded, is_running(video_id))
 
     body = {
         "video_id": video_id,
         "status": status,
         "source": video.source,
+        "added_by": _added_by_label(video.source, video.added_by),
         "chunk_count": total,
         "embedded_count": embedded,
         "progress_url": f"/videos/{video_id}",
@@ -300,21 +344,27 @@ def _store_paste(
 async def paste_video(request: Request, session: Session = Depends(get_session)):
     """Add a video by pasting its transcript from YouTube's panel.
 
-    Body: {"url": "...", "transcript": "..."}. Header: X-Paste-Token.
+    Body: {"url": "...", "transcript": "..."}. Optional header: X-Paste-Token.
 
-    Order of checks, cheapest first, and why:
-      503 if no token is configured (fails closed; nothing is read).
-      401 for a missing or wrong token (nothing is read).
-      422 for a body over the size limit, not JSON, or a transcript that
-          breaks a rule. 400 for an unreadable URL.
+    Who is calling:
+      No header, or no PASTE_TOKEN configured: a visitor. The limits apply.
+      The right X-Paste-Token: the admin. The limits are skipped.
+      A wrong token: 401. An empty header counts as no header.
+
+    Order of checks, cheapest first:
+      401 for a wrong token (nothing is read).
+      422 for a body over the size limit, not JSON, or a transcript that breaks
+          a rule. 400 for an unreadable URL.
+      422 (visitor) if the transcript makes more than 150 chunks.
+      429 (visitor) if the paste would take the daily total over the cap.
     The token is compared in constant time and is never echoed back.
     """
-    if not PASTE_TOKEN:
-        raise HTTPException(status_code=503, detail=PASTE_DISABLED_DETAIL)
-
     provided = request.headers.get("x-paste-token", "")
-    if not hmac.compare_digest(provided.encode("utf-8"), PASTE_TOKEN.encode("utf-8")):
-        raise HTTPException(status_code=401, detail="missing or wrong X-Paste-Token header")
+    admin = False
+    if PASTE_TOKEN and provided:
+        if not hmac.compare_digest(provided.encode("utf-8"), PASTE_TOKEN.encode("utf-8")):
+            raise HTTPException(status_code=401, detail="wrong X-Paste-Token header")
+        admin = True
 
     try:
         raw = await read_limited(request.stream(), PASTE_BODY_LIMIT)
@@ -344,9 +394,39 @@ async def paste_video(request: Request, session: Session = Depends(get_session))
         raise HTTPException(status_code=422, detail=str(exc))
 
     code, payload = await run_in_threadpool(
-        _store_paste, session, video_id, body["transcript"], parsed
+        _store_paste, session, video_id, body["transcript"], parsed, admin
     )
     return JSONResponse(payload, status_code=code)
+
+
+@app.get("/videos")
+def list_videos(session: Session = Depends(get_session)):
+    """Added videos, newest first, for the page. Hidden ids are left out.
+
+    `checked` is false for visitor pastes, so the page can label them "not
+    checked". Returns ids and labels only, never transcript text. Capped at
+    200 videos.
+    """
+    rows = session.execute(
+        text("SELECT video_id, source, added_by, fetched_at FROM videos "
+             "ORDER BY fetched_at DESC LIMIT :n"),
+        {"n": 200 + len(HIDDEN_IDS)},
+    ).all()
+    videos = []
+    for row in rows:
+        if row.video_id in HIDDEN_IDS:
+            continue
+        added_by = _added_by_label(row.source, row.added_by)
+        videos.append({
+            "video_id": row.video_id,
+            "source": row.source,
+            "added_by": added_by,
+            "checked": added_by != "visitor",
+            "fetched_at": row.fetched_at.isoformat() if row.fetched_at else None,
+        })
+        if len(videos) == 200:
+            break
+    return {"videos": videos}
 
 
 @app.get("/videos/{video_id}")
@@ -354,7 +434,8 @@ def video_progress(video_id: str, session: Session = Depends(get_session)):
     """How far embedding has got for one video. Counts only: no transcript text.
 
     Public on purpose: it reveals nothing a person could not learn by asking
-    a question, and it is what a person checks after pasting.
+    a question, and it is what a person checks after pasting. A hidden video
+    answers as not found.
     """
     try:
         vid = extract_video_id(video_id)
@@ -364,9 +445,11 @@ def video_progress(video_id: str, session: Session = Depends(get_session)):
     run = chunking_run_label(DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP)
     # Select only the source column: loading the row would drag the whole
     # stored transcript out of the database on every progress check.
-    source = session.execute(
-        text("SELECT source FROM videos WHERE video_id = :v"), {"v": vid}
-    ).scalar()
+    source = None
+    if vid not in HIDDEN_IDS:
+        source = session.execute(
+            text("SELECT source FROM videos WHERE video_id = :v"), {"v": vid}
+        ).scalar()
     if source is None:
         return JSONResponse(
             {"video_id": vid, "status": "not_found"}, status_code=404
@@ -380,6 +463,8 @@ def video_progress(video_id: str, session: Session = Depends(get_session)):
         "chunk_count": total,
         "embedded_count": embedded,
     }
+
+
 class AskRequest(BaseModel):
     """A question about one video.
 
@@ -509,6 +594,17 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)):
         except ValueError as exc:
             log.error = f"bad_video_reference: {exc}"
             raise HTTPException(status_code=400, detail=str(exc))
+
+        # A hidden video answers exactly like one that was never added, so a
+        # hidden video cannot be told apart from absent from outside. The log
+        # keeps the real reason. No chunk is touched: hiding is a setting.
+        if video_id in HIDDEN_IDS:
+            log.error = f"video_hidden: {video_id}"
+            raise HTTPException(
+                status_code=404,
+                detail=f"Video {video_id} has not been added yet. "
+                       "Add it with POST /videos first.",
+            )
 
         # A video that was never added used to reach retrieval, find nothing,
         # and get "nothing in this video's transcript matches", which blames a

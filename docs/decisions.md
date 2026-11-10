@@ -12,7 +12,34 @@
 - 413 for an oversized body. Rejected: rule 6 says 422 for invalid input, and one family is easier to explain.
 - Keep the progress route behind the token. Rejected: it is needed after a paste, and it carries no transcript text.
 
-## 10 Nov 2026: a missing PASTE_TOKEN disables paste without stopping the app (refines rule 7)
+## 10 Nov 2026: pasting is public, with limits; PASTE_TOKEN is an admin override
+
+**Decision.** Anyone can add a video by pasting its transcript. A request with the right `X-Paste-Token` is the admin and skips the public limits. A wrong token is 401. No header, an empty header, or no `PASTE_TOKEN` configured makes a visitor. Visitors get, in `app/limits.py`:
+1. At most 150 chunks per new paste. Over that is 422 with the count and the limit. Checked before anything is written.
+2. A daily cap, `PUBLIC_PASTE_DAILY_CHUNKS` (default 600), across all visitors. It counts chunks stored for visitor pastes in the last 24 hours, read from the database, so a restart does not reset it. Over the cap is 429 with the cap and the amount used. The check and the write run under one lock.
+3. Visitor pastes are marked `added_by = 'visitor'` (new nullable column, expand-only migration). `GET /videos` lists videos with `added_by` and `checked`; `checked` is false for visitor pastes, so the page can label them "not checked".
+4. `HIDDEN_VIDEO_IDS` (comma-separated 11-character ids). Hidden videos are left out of `GET /videos`, return 404 from `GET /videos/{id}` and `POST /ask` (the same message as a video that was never added), and refuse a new paste with 409. Hiding writes nothing: chunks stay append-only.
+
+Resending the same paste to a video that exists is a resume and does not count against the cap again.
+
+**Why.** The use case is strangers adding their own videos, so pasting cannot require the owner. The limits bound the quota a stranger can spend (a 150-chunk paste is three embedding batches; 600 chunks a day is 12). Hiding is a setting so a vandalised video can be removed from view at once without losing any chunk, which the log rows still point at.
+
+**Alternatives considered.**
+- Keep pasting behind the token. Rejected: it defeats the purpose.
+- Count *embedded* chunks for the cap. Rejected: two pastes in flight would both see the same headroom. Counting stored chunks is checked and written under one lock.
+- A calendar-day cap. Rejected for now: a rolling 24 hours has no midnight edge where a burst can double the allowance. Revisit if the Gemini quota reset time makes a calendar day the better match.
+- Delete a vandalised video. Rejected: its chunks back logged answers, and chunks are append-only.
+
+**Also decided.**
+- A visitor's wrong token is 401, not "treated as a visitor". A wrong token means someone thinks they are the owner, and failing loudly says so.
+- Hiding and the cap are environment settings, so a change takes effect on the next restart. Both are checked at startup.
+- The list is capped at 200 videos, newest first, and contains ids, sources and labels only.
+- A hidden id cannot be pasted again until it is removed from the setting.
+
+## 10 Nov 2026: a missing PASTE_TOKEN disables paste without stopping the app (refines rule 7) [SUPERSEDED same day: see the public-paste entry above]
+
+*Superseded later on 10 Nov: pasting is public, and PASTE_TOKEN is now an admin override. The reasoning about rule 7 still holds: a bad PUBLIC_PASTE_DAILY_CHUNKS or HIDDEN_VIDEO_IDS stops the app.*
+
 
 **Decision.** Rule 7 says invalid configuration stops the app at startup. An unset PASTE_TOKEN is not invalid configuration; it is a missing optional feature. So the app starts, prints one line saying paste is disabled, and POST /videos/paste answers 503 "paste is disabled on this server" before it reads the body. The app still fails closed: with no token configured, no paste is accepted. A token that is set but wrong gets 401. The token value is never printed.
 

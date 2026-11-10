@@ -277,7 +277,9 @@ Copy `.env.example` to `.env` and fill in:
 - `GEMINI_MODEL=gemini/gemini-3.6-flash` (optional; this is the default)
 - `FALLBACK_MODELS=gemini/gemini-3.5-flash-lite` (optional, comma separated)
 - `RETRIEVAL_METHOD=dense` (optional; `dense` or `lexical`, checked at startup)
-- `PASTE_TOKEN=...` (optional; enables `POST /videos/paste`. Unset means paste answers 503 and the app still starts. Set it only in Render's environment or local `.env`, never in code or the repo)
+- `PASTE_TOKEN=...` (optional admin override: a request with the right `X-Paste-Token` skips the public paste limits. Set it only in Render's environment or local `.env`, never in code or the repo)
+- `PUBLIC_PASTE_DAILY_CHUNKS=600` (optional; chunks visitors may add per rolling 24 hours, across all visitors. A non-number stops the app)
+- `HIDDEN_VIDEO_IDS=` (optional; comma-separated 11-character video ids to hide from listings and from `/ask`. Chunks are not deleted. Changes take effect on restart)
 
 
 The `postgresql+psycopg://` prefix matters. Plain `postgresql://` makes
@@ -320,7 +322,8 @@ docker run --env-file .env -p 8000:8000 --cpus=0.1 --memory=512m deepdive
 | GET | `/ready` | Readiness. Checks the database. |
 | POST | `/videos` | Add a video: fetch transcript, chunk, embed, store. Repeating it finishes an interrupted embedding. |
 | POST | `/ask` | Ask a question about an added video. Returns 404 if the video has not been added. |
-| POST | `/videos/paste` | Add a video from a transcript pasted from YouTube's "Show transcript" panel. Needs the `X-Paste-Token` header. Returns 202 while embedding runs in the background; send the same request again to resume. |
+| POST | `/videos/paste` | Add a video from a transcript pasted from YouTube's "Show transcript" panel. Public, limited to 150 chunks per paste and a daily cap across visitors (429 when reached). The admin token skips the limits. Returns 202 while embedding runs in the background; send the same request again to resume. |
+| GET | `/videos` | Added videos, newest first (up to 200). Each has `added_by` and `checked`; visitor pastes are `checked: false`. Hidden videos are left out. |
 | GET | `/videos/{id}` | Progress for one video: `status` (`ready`, `embedding`, `incomplete`, `not_found`), `chunk_count`, `embedded_count`. Counts only, no transcript text. |
 
 `/health` deliberately checks nothing external. A health check that fails on a
