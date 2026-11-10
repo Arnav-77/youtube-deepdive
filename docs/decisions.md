@@ -12,6 +12,14 @@
 - 413 for an oversized body. Rejected: rule 6 says 422 for invalid input, and one family is easier to explain.
 - Keep the progress route behind the token. Rejected: it is needed after a paste, and it carries no transcript text.
 
+## 10 Nov 2026: a paste whose segments run past 1,000 characters is refused as missing timestamps
+
+**Decision.** Unreadable lines after a timestamp are still joined to the words before them. But if any one segment ends up longer than 1,000 characters, the paste is refused with 422 and the message says the timestamps look missing. Nothing is stored.
+
+**Why.** A paste with its timestamps stripped would otherwise become one huge segment: one snippet, one chunk, and no citation point. Real panel segments are a line or two of speech.
+
+**Alternatives considered.** Reject every unreadable line (rejects wrapped sentences too). Split long segments at arbitrary points (invents timings, which citations then point at).
+
 ## 10 Nov 2026: pasting is public, with limits; PASTE_TOKEN is an admin override
 
 **Decision.** Anyone can add a video by pasting its transcript. A request with the right `X-Paste-Token` is the admin and skips the public limits. A wrong token is 401. No header, an empty header, or no `PASTE_TOKEN` configured makes a visitor. Visitors get, in `app/limits.py`:

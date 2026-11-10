@@ -432,3 +432,11 @@ def test_progress_while_a_job_is_running_says_embedding(env):
 
 def test_progress_with_a_bad_video_reference_is_400(env):
     assert env.client.get("/videos/bad-id").status_code == 400
+
+
+def test_a_paste_with_missing_timestamps_is_422_and_nothing_is_stored(env):
+    text = "0:00 first words\n" + "".join(f"made up line {i} here\n" for i in range(300))
+    r = post(env.client, good_body(text))
+    assert r.status_code == 422
+    assert "timestamps look missing" in r.json()["detail"]
+    assert env.fake.added == []

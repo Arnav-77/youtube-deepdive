@@ -31,6 +31,11 @@ from dataclasses import dataclass
 # Limits. Checked here, in code, never trusted to the caller.
 MAX_PASTE_BYTES = 300_000  # UTF-8 bytes of the transcript text (~2 to 2.5 h)
 MAX_SNIPPETS = 5_000
+# A real panel segment is a line or two of speech, a few hundred characters at
+# most. Unreadable lines are joined to the segment before them, so a paste whose
+# timestamps are missing would otherwise become one huge segment. Over this
+# length, the paste is refused rather than stored with one giant snippet.
+MAX_SEGMENT_CHARS = 1_000
 MAX_VIDEO_SECONDS = 12 * 3600
 
 # The panel gives no end time for the final segment. 4.0 s is a fixed estimate;
@@ -141,6 +146,12 @@ def parse_paste(text: str) -> ParsedPaste:
             raise PasteError("a timestamp is past the 12 hour limit")
         previous_start = start
         words = " ".join(p for p in parts if p).strip()
+        if len(words) > MAX_SEGMENT_CHARS:
+            raise PasteError(
+                "the timestamps look missing: one stretch of text runs past "
+                f"{MAX_SEGMENT_CHARS:,} characters without a new timestamp. "
+                "Copy the transcript again, with its timestamps."
+            )
         if words:
             kept.append((start, words))
 

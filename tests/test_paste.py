@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from app import paste
 from app.chunking import chunk_transcript
 from app.paste import (
     LAST_SNIPPET_SECONDS,
@@ -349,5 +350,25 @@ def test_real_copied_transcript_parses_and_chunks():
     assert all(s["duration"] >= 0 for s in parsed.snippets)
     assert chunk_transcript(parsed.snippets)
     # Forward-only, and the panel runs to about 17 minutes: the last cue must
-    # start after 16:00. (The captions path gives 1030 s for the same video.)
+    # start after 16:00 (the panel runs to about 17 minutes).
     assert starts[-1] >= 16 * 60
+
+
+# --- unreadable lines joined into one long segment --------------------------
+
+def test_one_timestamp_then_hundreds_of_unreadable_lines_is_refused():
+    # 300 made-up lines with no timestamp: they all join onto the first one.
+    text = "0:00 first words\n" + "".join(f"made up line {i} here\n" for i in range(300))
+    with pytest.raises(PasteError, match="timestamps look missing"):
+        parse_paste(text)
+
+
+def test_a_segment_of_exactly_the_limit_is_still_accepted():
+    words = "a" * paste.MAX_SEGMENT_CHARS
+    parsed = parse_paste(f"0:00 {words}\n")
+    assert len(parsed.snippets[0]["text"]) == paste.MAX_SEGMENT_CHARS
+
+
+def test_a_segment_one_character_over_the_limit_is_refused():
+    with pytest.raises(PasteError, match="timestamps look missing"):
+        parse_paste(f"0:00 {'a' * (paste.MAX_SEGMENT_CHARS + 1)}\n")
