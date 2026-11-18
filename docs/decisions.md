@@ -1,5 +1,18 @@
 # Design decisions
 
+## 18 Nov 2026: every model attempt in generate() has a 45-second timeout
+
+**Decision.** `generate()` passes `timeout=MODEL_TIMEOUT_S` (45) to `litellm.completion`. LiteLLM applies it to each attempt in a fallback chain (checked against the installed version with a fake provider call: both attempts received `timeout=45`), so the primary model plus one backup take at most 90 seconds. A timeout is an ordinary exception, so `generate()` still returns an error field and never raises, and `/ask` answers 502.
+
+**Why.** During the final evaluation one gemini-3.6-flash call did not return for about five minutes. `generate()` set no timeout and LiteLLM's default is 6000 s, so one hung call could hold a request, and a worker, for up to 100 minutes. This was the one change to `app/` allowed after the finish run froze it, by Arnav's instruction.
+
+**Alternatives considered.**
+- A `REQUEST_TIMEOUT` environment variable on Render. Rejected: invisible in the code, and a configuration that can be forgotten is how the gap arose.
+- A longer limit (60 or 90 s). Rejected: two attempts would then exceed 100 s, and the measured median answer takes about 7 s on the laptop.
+- A shorter limit (20 s). Rejected: the slowest healthy requests in the log took 27 s (production, 27.1 s).
+
+**Consequences.** A healthy answer slower than 45 s is now cut off and the backup tries. Two timeouts in a row give a 502. The strict `xfail` test became three normal tests in `tests/test_known_bugs.py`.
+
 ## 18 Nov 2026: final evaluation decisions (finish run, made by Claude Code under the approved plan)
 
 **Decision.** (1) A second, AI-written question set (`evaluation/golden_set_agent.yaml`, `author: claude-code`) and AI grounding labels (`evaluation/grounding_labels_agent.yaml`) are kept in their own files and scored on their own, never added to Arnav's labels. (2) Answers for evaluation go through the real `/ask` route with FastAPI's TestClient on the dev branch, never through a direct model call. (3) `log_stats.py` reads a CSV from `export_logs.py` instead of querying the database. (4) Scripts that write, or should never touch production, call `evaluation/dev_guard.py`, which prints only the host and stops unless it is the dev branch. (5) The evaluation runner sets LiteLLM's `REQUEST_TIMEOUT` (120 s) for its own process; `app/` is unchanged.

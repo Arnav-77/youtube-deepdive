@@ -64,6 +64,13 @@ FALLBACK_MODELS: list[str] = [
 ]
 
 
+# Seconds each model attempt may take. LiteLLM applies it to every attempt in a
+# fallback chain, so the primary and one backup together stay under 100 s
+# (2 x 45 = 90). Added 18 Nov 2026: a call with no timeout hung for about
+# five minutes during the final evaluation, and LiteLLM's default is 6000 s.
+MODEL_TIMEOUT_S = 45
+
+
 @dataclass
 class Generated:
     """Everything the caller needs to both answer the user and log the row.
@@ -153,6 +160,7 @@ def generate(question: str, results: list[Retrieved]) -> Generated:
             # question several times and reports the spread.
             temperature=0.0,
             fallbacks=FALLBACK_MODELS or None,
+            timeout=MODEL_TIMEOUT_S,
         )
     except Exception as exc:
         return Generated(

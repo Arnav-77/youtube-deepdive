@@ -160,7 +160,7 @@ Other evaluation tools, all in `evaluation/`:
 ## Known limitations and what is not built
 
 - **Not built:** the runtime critic that would block unsupported answers before display (an offline rubric and scorer exist instead); follow-up questions (multi-turn); topic-shift chunking (the fixed-size baseline is measured); a cross-encoder reranker; Whisper transcription for videos without captions; cross-video synthesis; a Groq fallback (the backup is a second Gemini model); the Next.js frontend (one static page instead).
-- **The model call has no timeout.** LiteLLM's default is 6,000 seconds, so one hung Gemini call can hold a request for a very long time. Recorded as a strict `xfail` test in `tests/test_known_bugs.py`.
+- **Each model attempt is capped at 45 seconds** (`MODEL_TIMEOUT_S` in `app/generation.py`), so the main model plus one backup take at most 90 seconds before `/ask` answers 502. Before 19 Nov 2026 there was no timeout and one hung call held a request for about five minutes (`tests/test_known_bugs.py` now tests the fix).
 - **A refusal is logged as an answered request**; only a label tells them apart.
 - **Citations point to a whole chunk** (about 1,000 characters), so a link can start up to a minute before the claim.
 - **Model names are not checked at startup**, so a wrong name fails on the first question.
