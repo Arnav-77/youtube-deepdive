@@ -1,316 +1,111 @@
 # YouTube Deep-Dive
 
-A conversational retrieval-augmented generation (RAG) system over YouTube
-transcripts. Ask a question about a video; get an answer built only from what
-was actually said, with citations that link to the moment in the video where
-each claim was made.
+Ask a question about a YouTube video and get an answer built only from what was said in it, where every claim links to the moment in the video it came from.
 
-**Live:** https://youtube-deepdive.onrender.com/docs
+It is a retrieval-augmented generation (RAG) system over YouTube transcripts: the transcript is split into chunks, the chunks closest in meaning to the question are given to a language model, and the model may cite them only by number. The code, not the model, turns each number into a timestamp link, so a timestamp cannot be invented.
 
-The service runs on a free tier and sleeps when idle, so the first request
-after a quiet period takes around 40 seconds. Later requests are immediate.
+B.Tech minor project, USICT, GGSIPU (Arnav Soni, 2026).
 
----
+- **Live page:** https://youtube-deepdive.onrender.com/ui/ (the `/ui/` page is live only after the November deploy; before that, use https://youtube-deepdive.onrender.com/docs)
+- **API docs:** https://youtube-deepdive.onrender.com/docs
 
-## The problem
+The server runs on Render's free tier and sleeps after 15 idle minutes, so the first request after a quiet period takes about 40 seconds.
 
-Tools that summarise YouTube videos give you one block of text and stop. They
-do not answer follow-up questions, they cannot point you to the moment a claim
-was made, and they give you no way to check whether the summary reflects the
-video or the model's own knowledge.
+## What it does
 
-This project targets the third problem in particular. An answer is only useful
-if you can verify it, so every claim carries a timestamp you can click.
+- Lists the videos that have been added, with thumbnails and titles.
+- Answers one question at a time about one video, from that video's transcript only, with numbered citations that open the video at the cited moment.
+- Lets anyone add a video by pasting the transcript YouTube shows under it (with limits; see below). Captioned videos are also added from the laptop.
+- Logs every request, failures included, with the model used, the chunks retrieved, tokens, latency, estimated cost and any error.
 
-## Pipeline
+It is single-turn: each question is answered on its own, with no memory of earlier questions.
 
-1. **Fetch** the transcript for a YouTube URL (youtube-transcript-api).
-2. **Chunk** it into pieces of about 1,000 characters, each with its start and end time.
-3. **Embed** each chunk (gemini-embedding-001, 768 dimensions) and store the vectors in Postgres with pgvector.
-4. **Retrieve** the 5 chunks closest in meaning to the question (cosine similarity). Word search is the logged fallback.
-5. **Generate** an answer from those chunks only (Gemini via LiteLLM, with a backup model).
-6. **Cite**: the model writes `[1]`, `[2]`, and the application turns each into a timestamp link.
-7. **Log** every request to Postgres, including the ones that fail.
+## Architecture
 
+```mermaid
+flowchart LR
+    B[Browser: /ui/ page or /docs] -->|HTTPS| R[Render: FastAPI in Docker<br/>512 MB, 0.1 CPU]
+    R -->|SQL| N[(Neon PostgreSQL + pgvector<br/>videos, chunks, chunk_embeddings,<br/>query_embeddings, query_logs)]
+    R -->|HTTPS| G[Google APIs<br/>Gemini via LiteLLM<br/>gemini-embedding-001]
+    L[Laptop, WSL2<br/>adds captioned videos,<br/>runs evaluation] -->|SQL| N
+    L -->|HTTPS| G
+```
 
-## Design decisions
+YouTube blocks transcript requests from Render's servers, so the live server never fetches captions. Captioned videos are added from the laptop into the same database; visitors add videos by pasting a transcript.
 
-These are the choices that shaped the system, with the reasoning behind them.
+## How a question flows
 
-**The model never writes a timestamp.** It cites excerpt numbers (`[1]`,
-`[2]`), and the application maps those back to chunk IDs and renders
-timestamps from the database. The excerpts sent to the model contain no
-timestamps at all. A fabricated timestamp is therefore impossible by
-construction rather than discouraged by instruction: a capability that does not
-exist cannot be misused.
+`POST /ask` with `{"video": "<url or id>", "question": "..."}`:
 
-**Prompt injection is treated as architectural, not textual.** Transcripts are
-untrusted text written by strangers, and a video can contain spoken or
-captioned instructions aimed at the model. The defences, strongest first: the
-model has no tools, no database access and no function calling, so a successful
-injection can produce bad text but never a bad action; citation numbers are
-validated in code against the excerpts actually sent; the prompt template is
-filled in a single pass, so untrusted text cannot rewrite the prompt's
-structure. The instruction telling the model to treat excerpts as data is the
-weakest layer and is included only as defence in depth.
+1. **Check the video** (`app/main.py`, `ask`). The id is parsed by `app/youtube.py` `extract_video_id`; a bad link is 400. A video that was never added, or is hidden, is 404.
+2. **Embed the question** (`app/embeddings.py`, `embed_query`): from the `query_embeddings` cache if the same text was seen before, otherwise one call to gemini-embedding-001 (768 dimensions) with a 10-second timeout.
+3. **Retrieve** (`app/retrieval.py`, `dense_search`): the 5 chunks of that video closest to the question by pgvector's cosine distance (`<=>`). If dense search cannot run, `main._retrieve` falls back to word search (`search`) and logs `lexical_fallback:<reason>`.
+4. **Build the prompt** (`app/generation.py`, `build_context` and `render_prompt`): the chunks become excerpts `[1]` to `[5]`, with no times and no ids, and the template `app/prompts/answer_v1.txt` is filled in a single pass.
+5. **Generate** (`generate`): LiteLLM calls `gemini/gemini-3.6-flash` at temperature 0; if it fails, the backup in `FALLBACK_MODELS` answers. `generate` never raises; a failure becomes an error field and a 502.
+6. **Check citations** (`invalid_citations`, using `app/citations.py` `cited_numbers`): any `[n]` outside 1 to 5 is recorded as `invalid_citations`.
+7. **Build links** (`ask`): each valid `[n]` maps to its chunk and becomes `https://youtu.be/<id>?t=<start>`.
+8. **Log** (`_write_log`): exactly one `query_logs` row, written in a `finally` block on every path.
 
-**Every request is logged, including the ones that fail.** A `finally` block
-writes the row on every path. Question, retrieved chunk IDs, prompt version,
-model requested, model that answered, token counts, latency, estimated cost and
-error all persist. The evaluation report is built from this table, and it
-cannot be reconstructed after the fact, so it was built before anything else
-worked.
+## Results
 
-**Chunks are append-only.** Every chunk row carries the chunking run that
-produced it, so a second chunking strategy is written alongside the first
-rather than replacing it. Retrieval requires the run to be named explicitly, so
-two strategies can never be silently mixed. This is what makes the comparison
-between chunking strategies reproducible from the database months later.
+From the final evaluation on 18 Nov 2026. Every number is in `evaluation/REPORT_DATA.md` with the file and command it came from.
 
-**Caption timestamps are computed from the next snippet, not from duration.**
-YouTube's caption snippets overlap: `duration` measures how long text stays
-visible on screen, not how long it is spoken, so `start + duration` is not when
-the speech ends. Using it puts every citation several seconds late. The fix is
-to take a snippet's end from the start of the next one. This was found by
-inspecting real data and confirmed by opening the video at the timestamp; no
-unit test would have caught it, because the wrong timestamps are internally
-consistent and correctly typed.
+**Retrieval, human-labelled** (`evaluation/golden_set.yaml`, 14 questions on 4 reported videos, top 5, `evaluation/results/retrieval_human.txt`):
 
-**One datastore, deliberately.** Postgres on Neon holds transcripts, chunks,
-embeddings (through pgvector) and logs, so search runs as SQL against the same
-rows the logs point to. The original plan used ChromaDB for vectors, but
-Render's free tier has no persistent disk, so a local vector index would be
-wiped on every deploy. Neon rather than Render's own Postgres because Render's
-free database deletes itself 30 days after creation, which would have
-destroyed the logging table twice before submission.
-
-**The retrieval method is a setting, and every request records which one
-ran.** `RETRIEVAL_METHOD` selects dense or word search and is checked at
-startup, so a typo stops the deploy instead of failing the first real
-question. If dense search cannot run for a request (a chunk with no embedding,
-or the embedding service failing), the request falls back to word search and
-its log row says `lexical_fallback:<reason>`, so a fallback is never invisible.
-
-## Measured results
-
-Numbers from the deployed system, not estimates.
-
-| Measurement | Value |
-|---|---|
-| Cold start (idle service to first response) | 41.5 s |
-| Warm response, `/health` | 0.32 s |
-| End-to-end `/ask`, same request, observed range | 3.6 s to 27.1 s |
-| Application's own share of that latency | under 1 s |
-| Benchmark corpus | 23 videos, 1,574 chunks, all embedded |
-
-The latency range is the interesting result. The same question, with identical
-retrieval and identical code, varied roughly sevenfold across runs. A
-first-call-after-startup effect was hypothesised and ruled out by experiment:
-after a cold start, two identical back-to-back requests took 11.7 s and then
-22.2 s, and a startup cost cannot make the second request slower. Generation is
-therefore over 90% of every request, and the system's P95 latency is
-effectively the model provider's P95. No amount of optimising this codebase
-would move it.
-
-### Retrieval quality
-
-19 hand-labelled questions on 5 videos: 14 on 4 reported videos and 5 on one
-development video. `fixed_1000_200` chunks, top 5 retrieved.
-
-| Reported set (14 questions) | Word search | Dense | Hybrid (RRF) |
+| | Word search | Dense (live) | Hybrid (RRF) |
 |---|---|---|---|
-| Recall@5 | 0.86 (12/14) | 1.00 (14/14) | 1.00 (14/14) |
-| Right chunk ranked first | 7/14 | 12/14 | 10/14 |
-| MRR | 0.63 | 0.92 | 0.82 |
-| Median distance of citation from the answer | 40 s | 15 s | 22 s |
-| Citations landing late (of those found) | 1/12 | 5/14 | 3/14 |
+| Recall@5 | 0.857 (12/14) | 1.000 (14/14) | 1.000 (14/14) |
+| MRR | 0.631 | 0.917 | 0.815 |
+| Recall@1 | 7/14 | 12/14 | 10/14 |
 
-Compared question by question across all 19, dense ranked the right chunk
-higher than word search on 9, equal on 10 and lower on none. With so few
-questions, from only five videos, that is a clear direction rather than a final
-result. Dense has been the live method since October 2026. Hybrid scored below
-dense because on none of these questions did word search rank the right chunk
-above dense, so mixing it in could only pull rankings down; the questions
-contain no case where exact matching should win (rare names, new terms), so
-hybrid stays in the code as a tested alternative.
+**Retrieval, AI-written questions** (`evaluation/golden_set_agent.yaml`, written and checked by Claude Code, not by Arnav; 18 reported videos; `evaluation/results/retrieval_agent.txt`):
 
-Retrieval is not the whole story. The first real user's question, "how to be
-consistent", found nothing under word search because the speaker never says the
-word. Under dense search the right passage is retrieved, and the model still
-replies that the excerpts do not contain the answer. A retrieval failure became
-a generation failure, and the log shows which. Measuring whether answers are
-supported by the passages they cite is the next stage.
+| Question type | Word search | Dense | Hybrid |
+|---|---|---|---|
+| Uses the speaker's own words (18) | 18/18, MRR 0.963 | 18/18, MRR 1.000 | 18/18, MRR 0.972 |
+| Paraphrase, avoids the speaker's words (18) | 7/18, MRR 0.292 | 18/18, MRR 0.972 | 15/18, MRR 0.604 |
 
-## Evaluation
+**Grounding, AI-labelled** (an AI judge, Claude Code, labelled every answer with the rubric in `docs/grounding.md`; `evaluation/grounding_labels_agent.yaml`, `evaluation/results/summary.txt`). The run's answers came through the real `/ask` code on the dev branch; the backup model answered all of them because the main model was returning 503:
 
-Retrieval is measured against a hand-written golden set: for each question, the
-timestamp span where the answer actually is.
+| Answers (this run) | Segments supported | Every segment supported | Refusals |
+|---|---|---|---|
+| 19 human questions | 31/31 | 18/18 answered | 1 false refusal ("how to be consistent") |
+| 40 AI-written questions | 33/35 | 18/20 answered | 19 of 19 negatives refused correctly, 0 missed, 1 false refusal |
 
-**Labels are timestamp spans, not chunk IDs.** A chunk ID belongs to one
-chunking run, so a label naming a chunk cannot score a different chunking
-strategy at all. Seconds belong to the video, so one label scores every
-strategy.
+**Grounding, Arnav's labels:** 1 scored answer so far (3/3 segments supported). Agreement with the AI judge exists on only 2 answers, far too few to trust; a 20-segment spot check is prepared (`evaluation/spot_check_labels.yaml`).
 
-**The benchmark is split into a development set and a reported set, and videos
-never move between them.** All tuning happens on the development videos. The
-reported videos are evaluated, never tuned against. Without that separation,
-reported results would measure how well the system does on the videos it was
-tuned on.
+**Citation rate** (proposal: at least 90% of responses cite timestamps; `evaluation/results/citation_rate.txt`): earlier answers on the dev branch 40/43 (93.0%). In this run 39/59 (66.1%) overall, because 19 questions were built to be unanswerable and a correct refusal cites nothing; 38/38 (100%) of the answers that were not refusals.
 
-**Labels are written by hand.** Using the system's own retrieval to suggest
-where answers are would be faster and would make every measurement circular.
-
-Three metrics are reported together, because each hides something the others
-catch. Recall@k asks whether the right passage was retrieved at all. MRR asks
-whether it was near the top. Citation offset measures how far the citation
-lands from where the answer actually starts, signed, because a citation that
-lands late drops the user into the middle of an answer they may not realise
-they missed the start of.
-
-## Status
-
-Built and deployed:
-
-- Transcript ingestion with caption-overlap correction
-- Fixed-size chunking with timestamp metadata, as a measured baseline
-- Dense retrieval (Gemini embeddings in pgvector), live since October 2026, with word search as a logged fallback
-- Embeddings created automatically when a video is added
-- Grounded generation with code-validated citations and a backup model
-- Complete per-request logging, including which retrieval method answered
-- Retrieval evaluation harness comparing word, dense and hybrid search
-- Offline unit tests for the pure functions: chunking, timestamps, prompt rendering, citation checks, URL parsing
-- Benchmark: 23 of 25 videos chosen and ingested, 19 questions labelled
-
-In progress:
-
-- Hand-labelling the rest of the golden set
-- Measuring whether answers are supported by the passages they cite
-
-Planned:
-
-- Runtime grounding critic, using the same definition as the offline measurement
-- Topic-shift chunking, measured against the fixed-size baseline
-- Follow-up questions (multi-turn conversation)
-- A simple chat page in place of `/docs`
-- Cross-video synthesis across 2-3 videos on one topic
-- Tracing, P95 latency and cost reporting
-
-Not planned before submission:
-
-- Cross-encoder reranking (no free place to run the model)
-- Whisper transcription for videos without captions
-
-## Limitations
-
-**The live server cannot add new videos.** YouTube refuses transcript requests
-from cloud servers (`RequestBlocked`, observed October 2026). Videos are added
-from a home connection that writes to the same database, and the live site
-answers questions about those. Asking about a video that has not been added
-returns 404.
-
-**A refusal is logged as an answer.** A reply saying the excerpts do not
-contain the answer is recorded with status `answered`. Telling the two apart
-belongs to the grounding critic.
-
-**Citations resolve to a chunk, not to a sentence.** A 1000-character chunk can
-span over a minute, so a citation can land up to a minute before the claim it
-supports. Smaller or semantically-bounded chunks reduce this; sentence-level
-attribution would eliminate it. The offset is measured rather than described.
-
-**Transcript ingestion depends on an unofficial interface.** YouTube publishes
-no transcript API. The library used reads what the player uses, so there is no
-published rate limit and no contract. Ingesting several long videos in quick
-succession resulted in the source blocking the requesting IP address. This is
-the least reliable dependency in the system and it is outside the project's
-control.
-
-**Generation is not reproducible.** Two identical requests at temperature 0
-produced different answers, and the provider has signalled that the temperature
-parameter is being deprecated. Any evaluation must therefore run each question
-several times and report the spread, or an apparent improvement cannot be
-distinguished from sampling noise.
-
-**English only.** Transcripts are fetched in English, the transcript library's
-default, and the word-search fallback uses Postgres's English configuration.
-The embedding model supports other languages, but nothing here has been tested
-on them. Videos whose captions are auto-translated rather than auto-transcribed
-are excluded, because the retrievable text would not be the words spoken.
-
-**Cost figures are list prices.** The per-request cost recorded in the logs is
-computed from published rates, not billed. On a free tier the real constraint is
-rate limits rather than money, so the column answers what the system would cost
-at scale.
-
-**The benchmark is concentrated.** The reported videos are weighted toward
-introductory machine-learning explainers and university lectures, because the
-labels have to be written by someone who understands the content well enough to
-judge where an answer is.
-
-## Stack
-
-Python, FastAPI, PostgreSQL (Neon) with pgvector, SQLAlchemy, Alembic, LiteLLM
-over Gemini, Gemini embeddings (gemini-embedding-001) over plain HTTPS,
-youtube-transcript-api, Docker, Render.
-
-## Licence
-
-MIT. See `LICENSE`.
-
----
+Not measured yet: production latency (P50, P95) and the production citation rate. The scripts are written (`evaluation/export_logs.py`, `evaluation/live_latency.py`, `evaluation/log_stats.py`); laptop numbers are never used in their place.
 
 ## Running it locally
 
-**Prerequisites:** Python 3.12, a PostgreSQL database (Neon's free tier works),
-and a Gemini API key from Google AI Studio.
+Inside WSL (Ubuntu), with Python 3.12. Keep the code in the Linux file system (for example `~/code/deepdive`), not under `/mnt/c`.
 
 ```bash
-git clone https://github.com/Arnav-77/youtube-deepdive.git
-cd youtube-deepdive
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+git clone https://github.com/Arnav-77/youtube-deepdive.git ~/code/deepdive
+cd ~/code/deepdive
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env
 ```
 
-Copy `.env.example` to `.env` and fill in:
+Edit `.env`. `DATABASE_URL` (a Neon Postgres URL; use a dev branch, never production) and `GEMINI_API_KEY` are required; every other setting the app reads is listed in `.env.example` with a comment. Keep the `postgresql+psycopg://` prefix: plain `postgresql://` makes SQLAlchemy look for psycopg2, which is not installed.
 
-- `DATABASE_URL=postgresql+psycopg://user:password@host/dbname?sslmode=require`
-- `GEMINI_API_KEY=your-key` (used for both answers and embeddings)
-- `GEMINI_MODEL=gemini/gemini-3.6-flash` (optional; this is the default)
-- `FALLBACK_MODELS=gemini/gemini-3.5-flash-lite` (optional, comma separated)
-- `RETRIEVAL_METHOD=dense` (optional; `dense` or `lexical`, checked at startup)
-- `PASTE_TOKEN=...` (optional admin override: a request with the right `X-Paste-Token` skips the public paste limits. Set it only in Render's environment or local `.env`, never in code or the repo)
-- `PUBLIC_PASTE_DAILY_CHUNKS=600` (optional; chunks visitors may add per rolling 24 hours, across all visitors. A non-number stops the app)
-- `HIDDEN_VIDEO_IDS=` (optional; comma-separated 11-character video ids to hide from listings and from `/ask`. Chunks are not deleted. Changes take effect on restart)
-
-
-The `postgresql+psycopg://` prefix matters. Plain `postgresql://` makes
-SQLAlchemy reach for psycopg2, which is not installed, and the resulting error
-names a package you never asked for.
-
-Create the schema, then start the server:
+Create the tables, then start the server:
 
 ```bash
 alembic upgrade head
 python run.py
 ```
 
-It serves on port 8000 by default, or on `$PORT` if set. Interactive API docs
-are at `/docs`.
+It serves on port 8000 (or `$PORT`): the page at http://localhost:8000/ui/ and the API docs at http://localhost:8000/docs.
 
-Videos added through `POST /videos` are embedded automatically. Chunks that
-already existed can be embedded with `python evaluation/embed_chunks.py --videos all`,
-which is resumable and paced under the free tier's limits.
-
-### With Docker
+With Docker, and the same limits as Render:
 
 ```bash
 docker build -t deepdive .
-docker run --env-file .env -p 8000:8000 deepdive
-```
-
-To reproduce the deployment's resource limits, which is the only way to find
-out what the code does at 0.1 CPU and a hard 512 MB ceiling:
-
-```bash
 docker run --env-file .env -p 8000:8000 --cpus=0.1 --memory=512m deepdive
 ```
 
@@ -318,112 +113,64 @@ docker run --env-file .env -p 8000:8000 --cpus=0.1 --memory=512m deepdive
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | Liveness. Touches no dependencies, returns the commit SHA. |
-| GET | `/ready` | Readiness. Checks the database. |
-| GET | `/videos` | List the videos `/ask` can answer, newest first. Metadata only, no transcript text. |
-| GET | `/ui/` | The web page: pick a video, ask a question, follow the links to the moment in the video. Served by the API itself, so no CORS. |
-| POST | `/videos` | Add a video: fetch transcript, chunk, embed, store. Repeating it finishes an interrupted embedding. |
-| POST | `/ask` | Ask a question about an added video. Returns 404 if the video has not been added. |
-| POST | `/videos/paste` | Add a video from a transcript pasted from YouTube's "Show transcript" panel. Public, limited to 150 chunks per paste and a daily cap across visitors (429 when reached). The admin token skips the limits. Returns 202 while embedding runs in the background; send the same request again to resume. |
-| GET | `/videos` | Added videos, newest first (up to 200). Each has `added_by` and `checked`; visitor pastes are `checked: false`. Hidden videos are left out. |
-| GET | `/videos/{id}` | Progress for one video: `status` (`ready`, `embedding`, `incomplete`, `not_found`), `chunk_count`, `embedded_count`. Counts only, no transcript text. |
+| GET | `/health` | Liveness; touches nothing external; returns the deployed commit. |
+| GET | `/ready` | Readiness; checks the database. |
+| GET | `/ui/` | The web page. |
+| GET | `/videos` | Added videos, newest first, with `added_by` and `checked`. Hidden videos are left out. |
+| GET | `/videos/{id}` | Progress for one video: `ready`, `embedding`, `incomplete` or `not_found`, with chunk counts. |
+| POST | `/ask` | Ask about an added video. 404 if not added, 502 if the model fails. |
+| POST | `/videos/paste` | Add a video from a pasted transcript (public, limited). |
+| POST | `/videos` | Add a captioned video. Admin only (`X-Paste-Token`); fails closed. |
 
-`/health` deliberately checks nothing external. A health check that fails on a
-transient database blip makes the platform restart the application, which fixes
-nothing and drops in-flight requests.
+## Public paste rules
 
-## Layout
+`POST /videos/paste` with JSON `{"url": "...", "transcript": "..."}`, where the transcript is copied from YouTube's "Show transcript" panel. Both real panel layouts seen so far are parsed (time labels glued to the text, and times on their own lines).
 
-| Path | What it is |
-|---|---|
-| `app/main.py` | FastAPI app, endpoints, citation resolution, request logging |
-| `app/models.py` | SQLAlchemy models: videos, chunks, query_logs, chunk and question embeddings |
-| `app/db.py` | Engine and session |
-| `app/youtube.py` | URL parsing, transcript fetch, ingestion |
-| `app/chunking.py` | Fixed-size chunking with timestamp metadata |
-| `app/embeddings.py` | Gemini embedding client: batching, rate-limit pacing, question cache |
-| `app/retrieval.py` | Word search, dense search and hybrid (RRF) search |
-| `app/generation.py` | Prompt rendering, model call with a backup, citation validation |
-| `app/prompts/` | Versioned prompt templates |
-| `alembic/` | Database migrations |
-| `tests/` | pytest suite; `conftest.py` keeps it offline |
-| `evaluation/golden_set.yaml` | Hand-written relevance labels |
-| `evaluation/run_eval.py` | Retrieval harness: Recall@k, MRR, citation offset |
-| `evaluation/explain_query.py` | How every chunk ranked for one question, and why |
-| `evaluation/embed_chunks.py` | Resumable embedding backfill for existing chunks |
-| `evaluation/backfill_titles.py` | Fills missing video titles from YouTube's oEmbed endpoint. Dry run unless `--write` |
+- **Limits for visitors:** at most 150 chunks per paste (422 above that) and 600 visitor chunks per rolling 24 hours across all visitors, counted from the database (429 when reached). `PUBLIC_PASTE_DAILY_CHUNKS` changes the daily cap.
+- **Admin token:** a request with the right `X-Paste-Token` header (`PASTE_TOKEN`) skips both limits. A wrong token gets 401. `POST /videos` requires the token and fails closed when none is configured.
+- **"not checked":** videos added by visitors are labelled "not checked" on the page, because nobody has verified that the pasted text is the video's real transcript.
+- **Repeats and hiding:** pasting a video that already exists gets 409. Chunks are append-only and never edited or deleted. `HIDDEN_VIDEO_IDS` hides a video from the list and from `/ask` (404) without deleting anything.
+- Embedding runs in the background: the request answers 202 while it runs and 200 when the video is ready; sending the same request again resumes an interrupted embedding.
 
-
-## Running the tests
+## Tests
 
 ```bash
-pip install -r requirements-dev.txt
+source .venv/bin/activate
 pytest
 ```
 
-The tests need no network, no database and no `.env`. `tests/conftest.py`
-disables `.env` loading, replaces `DATABASE_URL` with an unreachable address,
-makes LiteLLM use its bundled price list, and blocks Python socket
-connections, so a test that tried to reach Gemini or YouTube would fail rather
-than quietly succeed. The socket block does not cover the database driver,
-which connects from C code; the unreachable `DATABASE_URL` is what keeps tests
-away from Postgres. pytest lives in `requirements-dev.txt`, not
-`requirements.txt`, so it is never installed on the server.
+The suite runs offline: `tests/conftest.py` disables `.env`, replaces `DATABASE_URL` with an address that cannot connect, removes the API key and blocks Python sockets. Evaluation scripts are checked by reading their source, never by running them. Tests marked `xfail(strict=True)` document known bugs; when a bug is fixed its test fails until the marker is removed. GitHub Actions runs the suite on every push and pull request (`.github/workflows/tests.yml`).
 
-Tests marked `xfail` describe known gaps that are not fixed yet. They are
-strict: when the gap is fixed, the test fails until the marker is removed.
-
-## Running the evaluation
+## Evaluation in one command
 
 ```bash
-python evaluation/run_eval.py --set dev
+python evaluation/run_all.py --json evaluation/results/summary.json > evaluation/results/summary.txt
 ```
 
-Retrieval only: no model is called, so it costs nothing and is safe to run as
-often as you like. It defaults to the development set. Reported numbers require
-`--set reported`, which is deliberately a separate flag, so that tuning against
-the reported videos takes a conscious act rather than a default.
+It makes no API calls. It runs retrieval for dense, lexical and hybrid search on both question sets from cached question embeddings (and stops with a message if one is missing), then scores grounding from Arnav's labels and from the AI labels separately, and prints one summary table. It reads only the dev branch (`evaluation/dev_guard.py` stops it anywhere else).
 
-```bash
-python evaluation/run_eval.py --run fixed_1000_200 --k 5 --set dev
-```
+Other evaluation tools, all in `evaluation/`:
 
-`--run` selects which chunking strategy to evaluate, which is what makes
-comparing two strategies a matter of changing one argument. `--method lexical`,
-`dense` or `hybrid` selects the retrieval method (default `lexical`, the
-original baseline). Question embeddings are cached, so repeat runs make no
-embedding calls.
+- `run_eval.py --golden FILE --method M --set reported|dev`: retrieval for one method. Always pass `--method` and `--set`.
+- `score_grounding.py [--labels FILE] [--golden FILE ...] [--compare FILE]`: grounding rate, answer-level rate, refusal results, agreement. Rules: `docs/grounding.md`.
+- `generate_answers.py`: answers through the real `/ask` code on the dev branch, with a call budget.
+- `export_logs.py`, `log_stats.py`, `citation_rate.py`, `live_latency.py`: request-log numbers (export first, then compute from the CSV).
+- `spot_check.py`, `spot_check_agreement.py`: a hand check of 20 AI-labelled segments.
 
-### Filling in video titles
+## Known limitations and what is not built
 
-Titles come from YouTube's public oEmbed endpoint, at ingestion and from this
-script. A video whose lookup fails keeps a NULL title, and the page shows
-"Untitled video" in its place.
+- **Not built:** the runtime critic that would block unsupported answers before display (an offline rubric and scorer exist instead); follow-up questions (multi-turn); topic-shift chunking (the fixed-size baseline is measured); a cross-encoder reranker; Whisper transcription for videos without captions; cross-video synthesis; a Groq fallback (the backup is a second Gemini model); the Next.js frontend (one static page instead).
+- **The model call has no timeout.** LiteLLM's default is 6,000 seconds, so one hung Gemini call can hold a request for a very long time. Recorded as a strict `xfail` test in `tests/test_known_bugs.py`.
+- **A refusal is logged as an answered request**; only a label tells them apart.
+- **Citations point to a whole chunk** (about 1,000 characters), so a link can start up to a minute before the claim.
+- **Model names are not checked at startup**, so a wrong name fails on the first question.
+- **The live server cannot fetch captions** (YouTube blocks Render's IP).
+- **Answers are not reproducible**, even at temperature 0; repeated runs differ.
+- **English only**, and the benchmark leans towards machine-learning explainers and lectures.
+- **Grounding numbers rest mostly on an AI judge**; Arnav's own labels cover only a few answers so far.
 
-```bash
-python evaluation/backfill_titles.py          # dry run: prints id and title, writes nothing
-python evaluation/backfill_titles.py --write  # writes titles to the database .env points at
-```
+More detail: `docs/decisions.md` (design decisions with alternatives), `docs/problems.md` (what broke and how it was found), `docs/grounding.md` (the grounding rubric).
 
-Only videos with no title are looked up, one at a time, with a second's pause
-between requests. oEmbed is asked first. For a video it cannot title, add a line
-to `evaluation/video_titles.yaml` (`video_id: Title`), then run the script again.
-Each failure is printed with its HTTP status, or the error name when there was
-no response.
+## Licence
 
-## Notes for contributors
-
-**Never UPDATE or DELETE a chunk row.** Every chunk ID recorded in
-`query_logs.retrieved_chunks` must keep resolving to the same text forever.
-Re-chunking writes new rows under a new run label.
-
-**Never move a video between the development and reported sets** in
-`evaluation/golden_set.yaml` once it has been evaluated. The split exists to
-keep reported numbers honest, and moving one after seeing results defeats it.
-
-**Prompts are versioned files, not string constants.** A change belongs in a
-new file under `app/prompts/`, so that a change in output quality can be
-attributed to a specific edit.
-
-A fuller record of what broke and how each problem was diagnosed is in
-[docs/problems.md](docs/problems.md).
+MIT. See `LICENSE`.
