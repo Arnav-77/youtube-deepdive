@@ -1,9 +1,9 @@
 {
  "date": "18 Nov 2026",
- "passed": 476,
+ "passed": 494,
  "skipped": 3,
- "xfailed": 1,
+ "xfailed": 0,
  "failed": 0,
- "collected": 480,
- "line": "476 passed, 3 skipped, 1 xfailed, 2 warnings in 3.47s"
+ "collected": 497,
+ "line": "494 passed, 3 skipped, 2 warnings in 4.07s"
 }

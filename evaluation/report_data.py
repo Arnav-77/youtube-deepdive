@@ -162,10 +162,45 @@ def main():
               f"(n below 20: P95 lies between the two slowest), mean {prod_copy['mean']:.0f} ms, max {prod_copy['max']:.0f} ms",
               f"- failure rate {pct(prod_copy['failed'], prod_copy['servable'])}; by type {prod_copy['failed_by_type']}",
               f"- fallback {pct(prod_copy['fallback'], prod_copy['fallback_n'])}", ""]
+    live = list(__import__("csv").DictReader((RESULTS / "live_latency_production.csv").open())) \
+        if (RESULTS / "live_latency_production.csv").exists() else []
+    if live:
+        ms = sorted(float(r["server_ms"]) for r in live if r["status"] == "200")
+        from evaluation.log_rows import percentile
+        o += ["## 5c. Live production latency (Report Table 7.6, Figure 7.3)", "",
+              "Source: `evaluation/results/live_latency_production.csv` and `.txt`. Command: `python evaluation/live_latency.py "
+              "--questions evaluation/live_latency_questions.yaml --base-url https://youtube-deepdive.onrender.com --max 25 --pause 8`. "
+              "PRODUCTION numbers, measured from the laptop against the deployed server on 18 Nov 2026.", "",
+              f"- requests {len(live)}, answered {len(ms)}, failed {len(live) - len(ms)}",
+              f"- server latency (n={len(ms)}): P50 {percentile(ms, .5):.0f} ms, P95 {percentile(ms, .95):.0f} ms, "
+              f"mean {sum(ms) / len(ms):.0f} ms, max {max(ms):.0f} ms; over 45 s: {sum(1 for x in ms if x > 45000)}", ""]
+    smoke = load("smoke_test_production.json")
+    if smoke:
+        o += ["## 5d. Live checks (Report Section 7.9, Table 7.7)", "",
+              f"Source: `evaluation/results/smoke_test_production.json` and `.txt`. Command: `python evaluation/smoke_test.py`. "
+              f"Run {smoke['at']}.", ""]
+        o += [f"- {'pass' if c['ok'] else 'FAIL'}: {c['check']} ({c['detail']})" for c in smoke["checks"]]
+        o.append("")
+    demo = load("demo_video_added.json")
+    if demo:
+        o += ["## 5e. Demo video added to production (Report Section 7.9)", "",
+              "Source: `evaluation/results/demo_video_added.json` and `.txt`. Command: "
+              "`python evaluation/add_video_live.py \"https://www.youtube.com/watch?v=3cvGhO3FTtc\"`.", "",
+              f"- {demo['video_id']}: {demo['snippets']} snippets, about {demo['minutes']} minutes, {demo['chunks']} chunks, "
+              f"ready after about {demo['seconds']} s; checked={demo['checked']}, added_by={demo['added_by']}, title={demo['title']}; "
+              f"a question was answered with {demo['ask_citations']} citations by {demo['ask_model']} in {demo['ask_latency_ms']} ms", ""]
+    cpc = load("citation_rate_prod_in_dev_copy.json")
+    if cpc:
+        c = cpc["earlier"]
+        o += ["## 5f. Citation rate, production rows in the dev copy (Report Table 7.5, Chapter 3)", "",
+              "Source: `evaluation/results/citation_rate_prod_in_dev_copy.json`. Command: `python evaluation/citation_rate.py "
+              "evaluation/exports/dev_logs.csv --source production`.", "",
+              f"- answered {c['answered']}, with a valid citation {pct(c['cited'], c['answered'])}; "
+              f"{c['unlabelled_no_citation']} cite nothing and were never labelled", ""]
     o += ["## 6. Tests", ""]
     if tc:
         o.append(f"- {tc['date']}: {tc['collected']} collected, {tc['passed']} passed, {tc['skipped']} skipped, "
-                 f"{tc['xfailed']} xfailed. Source: `evaluation/results/test_count.json`, command `pytest -q`.")
+                 f"{tc['xfailed']} xfailed, {tc['failed']} failed. Source: `evaluation/results/test_count.json`, command `pytest -q`.")
     o += ["- Baseline before the finish run (5cad71f): 401 collected, 398 passed, 3 skipped (docs/finish_log.md).", ""]
 
     o += ["## 7. Facts used in the report that are not computed by a script", "",
@@ -183,6 +218,8 @@ def main():
           "| CS229 visitor paste: 22 chunks, citations at 74:40 | NOTES; 22 chunks matches the dev database (jGwO_UgTS7I) |",
           "| Phase 01 deployment reps (docker run, Compose with Caddy, Render) | NOTES only |",
           "| Laptop: ASUS TUF Gaming F16 (FX607VUR), Core 5 210H, 16 GB, Windows 11 Home, WSL2 | finish_plan.md section 3 (Arnav) |",
+          "| Before the final push production ran commit 6913196 and GET /videos answered 405; after it, 96ce6eb | observed with curl on 18 Nov 2026; docs/finish_log.md |",
+          "| Model attempts have a 45 s timeout (MODEL_TIMEOUT_S), checked with a fake provider call | app/generation.py; docs/decisions.md 18 Nov |",
           "| Hung model call about 5 minutes, LiteLLM default 6000 s | this run: evaluation/answers/finish_state/finish_budget.json hung_note; litellm/constants.py |",
           ""]
     OUT.write_text("\n".join(o) + "\n", encoding="utf-8")

@@ -1,0 +1,81 @@
+{
+ "base_url": "https://youtube-deepdive.onrender.com",
+ "at": "2026-11-18T13:32:55+00:00",
+ "raw": {
+  "health": {
+   "status": "ok",
+   "service": "deepdive-api",
+   "commit": "96ce6eb",
+   "http": 200,
+   "seconds": 0.3
+  },
+  "videos": {
+   "http": 200,
+   "count": 24,
+   "first": "3cvGhO3FTtc",
+   "untitled": 24,
+   "has_added_by": true,
+   "has_checked": true,
+   "has_bad_paste_video": false
+  },
+  "ask": {
+   "http": 200,
+   "status": "answered",
+   "model": "gemini-3.5-flash-lite",
+   "latency_ms": 3738,
+   "citations": [
+    {
+     "number": 1,
+     "start_seconds": 51.72,
+     "url": "https://youtu.be/LXaFHI_2Hus?t=51"
+    }
+   ]
+  },
+  "paste": {
+   "http": 422,
+   "detail": "no timestamps found; copy the transcript from the panel"
+  },
+  "videos_after": {
+   "http": 200,
+   "count": 24,
+   "first": "3cvGhO3FTtc",
+   "untitled": 24,
+   "has_added_by": true,
+   "has_checked": true,
+   "has_bad_paste_video": false
+  }
+ },
+ "checks": [
+  {
+   "check": "health ok with a commit id",
+   "ok": true,
+   "detail": "commit 96ce6eb, repo HEAD 96ce6eb"
+  },
+  {
+   "check": "health commit equals the repo's HEAD",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "GET /videos lists videos with added_by and checked",
+   "ok": true,
+   "detail": "24 videos"
+  },
+  {
+   "check": "POST /ask answers and cites [1] near ?t=51",
+   "ok": true,
+   "detail": "HTTP 200, model gemini-3.5-flash-lite, server latency 3738 ms, links ['https://youtu.be/LXaFHI_2Hus?t=51']"
+  },
+  {
+   "check": "bad paste gets 422",
+   "ok": true,
+   "detail": "HTTP 422: no timestamps found; copy the transcript from the panel"
+  },
+  {
+   "check": "bad paste stored nothing",
+   "ok": true,
+   "detail": "24 videos before, 24 after"
+  }
+ ],
+ "all_ok": true
+}

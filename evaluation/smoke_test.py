@@ -53,7 +53,7 @@ def judge(r: dict, head: str | None) -> list[dict]:
          "ok": ask.get("http") == 200 and ask.get("status") == "answered" and first is not None
                and first["url"].endswith("?t=51"),
          "detail": f"HTTP {ask.get('http')}, model {ask.get('model')}, server latency {ask.get('latency_ms')} ms, "
-                   f"links {[c['url'] for c in cites]}"},
+                   f"links {', '.join(c['url'] for c in cites)}"},
         {"check": "bad paste gets 422", "ok": paste.get("http") == 422,
          "detail": f"HTTP {paste.get('http')}: {paste.get('detail')}"},
         {"check": "bad paste stored nothing", "ok": r["videos_after"]["count"] == r["videos"]["count"]

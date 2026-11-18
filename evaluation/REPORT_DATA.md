@@ -125,9 +125,39 @@ Source: `evaluation/results/logstats_prod_in_dev_copy.json` and `.txt`. Command:
 - failure rate 22.2% (4/18); by type {'ServiceUnavailableError': 3, 'APIConnectionError': 1}
 - fallback 30.8% (4/13)
 
+## 5c. Live production latency (Report Table 7.6, Figure 7.3)
+
+Source: `evaluation/results/live_latency_production.csv` and `.txt`. Command: `python evaluation/live_latency.py --questions evaluation/live_latency_questions.yaml --base-url https://youtube-deepdive.onrender.com --max 25 --pause 8`. PRODUCTION numbers, measured from the laptop against the deployed server on 18 Nov 2026.
+
+- requests 25, answered 25, failed 0
+- server latency (n=25): P50 1810 ms, P95 46169 ms, mean 8503 ms, max 48291 ms; over 45 s: 3
+
+## 5d. Live checks (Report Section 7.9, Table 7.7)
+
+Source: `evaluation/results/smoke_test_production.json` and `.txt`. Command: `python evaluation/smoke_test.py`. Run 2026-11-18T13:32:55+00:00.
+
+- pass: health ok with a commit id (commit 96ce6eb, repo HEAD 96ce6eb)
+- pass: health commit equals the repo's HEAD ()
+- pass: GET /videos lists videos with added_by and checked (24 videos)
+- pass: POST /ask answers and cites [1] near ?t=51 (HTTP 200, model gemini-3.5-flash-lite, server latency 3738 ms, links ['https://youtu.be/LXaFHI_2Hus?t=51'])
+- pass: bad paste gets 422 (HTTP 422: no timestamps found; copy the transcript from the panel)
+- pass: bad paste stored nothing (24 videos before, 24 after)
+
+## 5e. Demo video added to production (Report Section 7.9)
+
+Source: `evaluation/results/demo_video_added.json` and `.txt`. Command: `python evaluation/add_video_live.py "https://www.youtube.com/watch?v=3cvGhO3FTtc"`.
+
+- 3cvGhO3FTtc: 97 snippets, about 4.7 minutes, 5 chunks, ready after about 10 s; checked=False, added_by=visitor, title=None; a question was answered with 3 citations by gemini-3.5-flash-lite in 3990 ms
+
+## 5f. Citation rate, production rows in the dev copy (Report Table 7.5, Chapter 3)
+
+Source: `evaluation/results/citation_rate_prod_in_dev_copy.json`. Command: `python evaluation/citation_rate.py evaluation/exports/dev_logs.csv --source production`.
+
+- answered 13, with a valid citation 84.6% (11/13); 2 cite nothing and were never labelled
+
 ## 6. Tests
 
-- 18 Nov 2026: 480 collected, 476 passed, 3 skipped, 1 xfailed. Source: `evaluation/results/test_count.json`, command `pytest -q`.
+- 18 Nov 2026: 497 collected, 494 passed, 3 skipped, 0 xfailed, 0 failed. Source: `evaluation/results/test_count.json`, command `pytest -q`.
 - Baseline before the finish run (5cad71f): 401 collected, 398 passed, 3 skipped (docs/finish_log.md).
 
 ## 7. Facts used in the report that are not computed by a script
@@ -147,5 +177,7 @@ Source: `evaluation/results/logstats_prod_in_dev_copy.json` and `.txt`. Command:
 | CS229 visitor paste: 22 chunks, citations at 74:40 | NOTES; 22 chunks matches the dev database (jGwO_UgTS7I) |
 | Phase 01 deployment reps (docker run, Compose with Caddy, Render) | NOTES only |
 | Laptop: ASUS TUF Gaming F16 (FX607VUR), Core 5 210H, 16 GB, Windows 11 Home, WSL2 | finish_plan.md section 3 (Arnav) |
+| Before the final push production ran commit 6913196 and GET /videos answered 405; after it, 96ce6eb | observed with curl on 18 Nov 2026; docs/finish_log.md |
+| Model attempts have a 45 s timeout (MODEL_TIMEOUT_S), checked with a fake provider call | app/generation.py; docs/decisions.md 18 Nov |
 | Hung model call about 5 minutes, LiteLLM default 6000 s | this run: evaluation/answers/finish_state/finish_budget.json hung_note; litellm/constants.py |
 

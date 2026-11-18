@@ -1,0 +1,7 @@
+PASS  health ok with a commit id  (commit 96ce6eb, repo HEAD 96ce6eb)
+PASS  health commit equals the repo's HEAD  ()
+PASS  GET /videos lists videos with added_by and checked  (24 videos)
+PASS  POST /ask answers and cites [1] near ?t=51  (HTTP 200, model gemini-3.5-flash-lite, server latency 3738 ms, links ['https://youtu.be/LXaFHI_2Hus?t=51'])
+PASS  bad paste gets 422  (HTTP 422: no timestamps found; copy the transcript from the panel)
+PASS  bad paste stored nothing  (24 videos before, 24 after)
+wrote /home/arnav/code/deepdive/evaluation/results/smoke_test_production.json
