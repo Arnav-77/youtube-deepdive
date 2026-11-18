@@ -13,6 +13,10 @@ excerpts are transcript text), and one line is appended to
 evaluation/answers/finish_runs.jsonl: label, question, status, row id,
 server latency, wall time, model, retrieval method.
 
+TIMEOUT: --llm-timeout (default 120 s) sets LiteLLM's REQUEST_TIMEOUT for this
+process only. This is the one way these requests differ from production,
+where LiteLLM's default of 6000 s applies.
+
 BUDGET (finish plan, hard rule 6), kept in evaluation/answers/finish_budget.json
 so a restart cannot overspend:
   - at most 120 answer-generation calls in total. One /ask is charged 1 call,
@@ -99,6 +103,8 @@ def main() -> None:
     parser.add_argument("--label", required=True, help="run label, e.g. human-r1")
     parser.add_argument("--set", default="all", choices=["dev", "reported", "all"])
     parser.add_argument("--limit", type=int, default=None, help="stop after N questions")
+    parser.add_argument("--llm-timeout", type=int, default=120,
+                        help="seconds; sets LiteLLM's REQUEST_TIMEOUT for this process")
     args = parser.parse_args()
 
     from evaluation.dev_guard import require_dev
@@ -109,6 +115,11 @@ def main() -> None:
     sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                          text=True, check=True).stdout.strip()
     os.environ["RENDER_GIT_COMMIT"] = f"local-{sha}"
+    # LiteLLM's default request timeout is 6000 s and generate() sets none, so
+    # one hung Gemini call stalled this run for minutes on 18 Nov. A setting,
+    # not a code change: LiteLLM reads REQUEST_TIMEOUT when it is imported.
+    # Production has no such setting (see report_out/REVIEW.md).
+    os.environ["REQUEST_TIMEOUT"] = str(args.llm_timeout)
 
     from fastapi.testclient import TestClient
     from sqlalchemy import text
