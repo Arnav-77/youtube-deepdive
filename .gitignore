@@ -15,3 +15,5 @@ tests/local_sample_paste*.txt
 # Final report sources and output hold personal details; kept on this machine only.
 report_src/
 report_out/
+# query_logs exports and live latency CSVs; production questions are typed by visitors.
+evaluation/exports/

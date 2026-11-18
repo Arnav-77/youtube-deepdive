@@ -1,135 +1,162 @@
-"""Operational numbers from query_logs: outcomes, failure rate, backup-model
-use, latency (median and P95) and list-price cost, split by where each
-request ran.
+"""Operational numbers from a query_logs CSV export (evaluation/export_logs.py).
 
-    python evaluation/log_stats.py
+    python evaluation/log_stats.py evaluation/exports/prod_logs.csv
+    python evaluation/log_stats.py evaluation/exports/dev_logs.csv --source laptop --since 2026-11-18
 
-Read-only. Every figure is printed with its sample size: with a few dozen
-rows, a P95 is close to "the second-slowest request" and has to be reported
-as exactly that, not as a stable property of the system.
+Reads the CSV only: no database, no network. Every figure is printed with its
+sample size. Rows are split by where the request ran (source_of in
+log_rows.py): production (a Render commit id), laptop ('local...'), unknown
+(before commit ids were logged).
+
+Prints, per source:
+  - requests per day;
+  - outcomes and the failure rate, by error type (user errors left out of
+    the denominator: they were never servable);
+  - latency of answered requests: P50, P95, mean, max (server-side,
+    query_logs.latency_ms, the whole /ask request);
+  - list-price cost per day (estimated_cost_usd from LiteLLM; not billed,
+    the project runs on free tiers);
+  - fallback rate: answered requests where the model that answered differs
+    from the model requested, after stripping the provider prefix;
+  - the share of each retrieval method.
+
+Earlier versions of this script queried the database directly; reading an
+export instead means production numbers come from one read-only SELECT
+(export_logs.py), and the same file can be re-scored at any time.
 """
 
+import argparse
+import statistics
 import sys
+from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy import text  # noqa: E402
-
-from app.db import SessionLocal  # noqa: E402
-
-# One row per request, labelled by where it ran and how it ended. starts_with
-# rather than LIKE '...%' keeps percent signs out of the SQL entirely.
-BASE = r"""
-WITH logs AS (
-    SELECT *,
-        CASE WHEN commit_sha IS NULL THEN 'before 21 Sep (unknown)'
-             WHEN commit_sha = 'local' THEN 'laptop'
-             ELSE 'production' END AS source,
-        CASE WHEN starts_with(error, 'bad_video_reference') THEN 'user error: bad link (400)'
-             WHEN starts_with(error, 'video_not_ingested') THEN 'user error: video not added (404)'
-             WHEN error = 'no_chunks_retrieved' THEN 'nothing retrieved'
-             WHEN starts_with(error, 'invalid_citations') THEN 'answered, invalid citation number'
-             WHEN error IS NULL AND answer IS NOT NULL THEN 'answered'
-             ELSE 'failed' END AS outcome
-    FROM query_logs
+from evaluation.log_rows import (
+    error_type,
+    is_answered,
+    outcome_of,
+    percentile,
+    read_csv,
+    source_of,
+    strip_provider,
+    to_float,
 )
-"""
-
-ANSWERED = "outcome IN ('answered', 'answered, invalid citation number')"
-
-OUTCOMES = BASE + """
-SELECT source, outcome, count(*) AS n
-FROM logs GROUP BY source, outcome ORDER BY source, n DESC
-"""
-
-FAILURES = BASE + """
-SELECT id, source, left(error, 80) AS error
-FROM logs WHERE outcome = 'failed' ORDER BY id
-"""
-
-# An answer with no [n] in it is almost always "the excerpts do not contain
-# the answer": the log records it as answered, so count it separately.
-NO_CITATION = BASE + r"""
-SELECT count(*) FILTER (WHERE answer !~ '\[[0-9]+\]') AS no_citation, count(*) AS n
-FROM logs WHERE """ + ANSWERED
-
-# The corrected rule from app/models.py: strip the provider prefix from both
-# names before comparing.
-FALLBACK = BASE + """
-SELECT count(*) FILTER (
-           WHERE regexp_replace(model, '^[^/]+/', '')
-              <> regexp_replace(model_requested, '^[^/]+/', '')) AS backup_answered,
-       count(*) AS n
-FROM logs WHERE model IS NOT NULL AND model_requested IS NOT NULL
-"""
-
-LATENCY = BASE + """
-SELECT source, count(*) AS n,
-       round(percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms))::int AS median_ms,
-       round(percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms))::int AS p95_ms,
-       max(latency_ms) AS max_ms
-FROM logs WHERE """ + ANSWERED + """
-GROUP BY source ORDER BY source
-"""
-
-RETRIEVAL = BASE + """
-SELECT coalesce(retrieval_method, 'not recorded (before 18 Oct)') AS retrieval_method,
-       count(*) AS n
-FROM logs GROUP BY 1 ORDER BY n DESC
-"""
-
-COST = BASE + """
-SELECT regexp_replace(model, '^[^/]+/', '') AS model, count(*) AS n,
-       count(estimated_cost_usd) AS priced,
-       round(sum(estimated_cost_usd)::numeric, 4) AS total_usd,
-       round(avg(estimated_cost_usd)::numeric, 5) AS avg_usd,
-       round(avg(prompt_tokens)) AS avg_prompt_tokens,
-       round(avg(completion_tokens)) AS avg_completion_tokens
-FROM logs WHERE model IS NOT NULL
-GROUP BY 1 ORDER BY n DESC
-"""
 
 
-def table(session, title, sql):
-    """Run one query and print it as an aligned table. Returns the rows."""
-    result = session.execute(text(sql))
-    cols = list(result.keys())
-    rows = result.all()
-    widths = [max([len(str(c))] + [len(str(r[i])) for r in rows]) for i, c in enumerate(cols)]
-    print(f"\n{title}")
-    print("  " + "  ".join(str(c).ljust(w) for c, w in zip(cols, widths)))
+def pct(part: int, whole: int) -> str:
+    return f"{100 * part / whole:.0f}% ({part}/{whole})" if whole else "n/a (0 of 0)"
+
+
+def compute(rows: list[dict]) -> dict:
+    """Every number for one group of rows. Pure."""
+    outcomes = Counter(outcome_of(r) for r in rows)
+    user_errors = sum(n for o, n in outcomes.items() if o.startswith("user error"))
+    failed = [r for r in rows if outcome_of(r) == "failed"]
+    answered = [r for r in rows if is_answered(r)]
+    latencies = [v for v in (to_float(r.get("latency_ms")) for r in answered) if v is not None]
+    per_day = Counter(str(r.get("created_at") or "")[:10] for r in rows)
+    cost_day = defaultdict(float)
+    priced_day = Counter()
     for r in rows:
-        print("  " + "  ".join(str(v).ljust(w) for v, w in zip(r, widths)))
-    return rows
+        c = to_float(r.get("estimated_cost_usd"))
+        if c is not None:
+            day = str(r.get("created_at") or "")[:10]
+            cost_day[day] += c
+            priced_day[day] += 1
+    with_models = [r for r in answered if r.get("model") and r.get("model_requested")]
+    fallback = [r for r in with_models
+                if strip_provider(r["model"]) != strip_provider(r["model_requested"])]
+    return {
+        "n": len(rows),
+        "per_day": dict(sorted(per_day.items())),
+        "outcomes": dict(outcomes.most_common()),
+        "servable": len(rows) - user_errors,
+        "failed": len(failed),
+        "failed_by_type": dict(Counter(error_type(r.get("error")) or "no error text"
+                                       for r in failed).most_common()),
+        "answered": len(answered),
+        "latency_n": len(latencies),
+        "p50": percentile(latencies, 0.5),
+        "p95": percentile(latencies, 0.95),
+        "mean": statistics.fmean(latencies) if latencies else None,
+        "max": max(latencies) if latencies else None,
+        "cost_per_day": {d: round(cost_day[d], 6) for d in sorted(cost_day)},
+        "priced_per_day": dict(sorted(priced_day.items())),
+        "fallback": len(fallback),
+        "fallback_n": len(with_models),
+        "retrieval": dict(Counter(r.get("retrieval_method") or "not recorded"
+                                  for r in rows if r.get("video_id")).most_common()),
+        "no_citation": sum(1 for r in answered if not (r.get("cited") or "").strip()),
+    }
 
 
-def main():
-    with SessionLocal() as session:
-        outcomes = table(session, "Outcomes, by where the request ran", OUTCOMES)
-        total = sum(r.n for r in outcomes)
-        user_errors = sum(r.n for r in outcomes if r.outcome.startswith("user error"))
-        failed = sum(r.n for r in outcomes if r.outcome == "failed")
-        servable = total - user_errors
-        if servable:
-            print(f"\nFailure rate: {failed} of {servable} requests that were not user "
-                  f"errors ({failed / servable:.0%}), all sources and dates together")
-        table(session, "Failed requests", FAILURES)
+def ms(v) -> str:
+    return "n/a" if v is None else f"{v:.0f} ms"
 
-        nc = session.execute(text(NO_CITATION)).one()
-        print(f"\nAnswered with no citation (most likely a refusal): {nc.no_citation} of {nc.n}")
-        fb = session.execute(text(FALLBACK)).one()
-        print(f"Backup model answered: {fb.backup_answered} of {fb.n} answered requests "
-              f"that record which model was asked for")
 
-        table(session, "Latency of answered requests, milliseconds", LATENCY)
-        print("  With this few requests, P95 is close to the slowest one or two.")
-        print("  Laptop times include ~280 ms per database round trip to Ohio; "
-              "production does not.")
+def report(title: str, s: dict) -> list[str]:
+    out = [f"== {title}: {s['n']} requests =="]
+    out.append("  requests per day: " + (", ".join(f"{d} {n}" for d, n in s["per_day"].items()) or "none"))
+    out.append("  outcomes: " + ", ".join(f"{o} {n}" for o, n in s["outcomes"].items()))
+    out.append(f"  failure rate: {pct(s['failed'], s['servable'])} of requests that were not user errors")
+    for t, n in s["failed_by_type"].items():
+        out.append(f"    {t}: {n}")
+    out.append(f"  latency of answered requests (n={s['latency_n']}): P50 {ms(s['p50'])}, "
+               f"P95 {ms(s['p95'])}, mean {ms(s['mean'])}, max {ms(s['max'])}")
+    if 0 < s["latency_n"] < 20:
+        out.append(f"    CAUTION: with n={s['latency_n']}, P95 lies between the two slowest requests.")
+    out.append("  list-price cost per day (USD, not billed): "
+               + (", ".join(f"{d} {c:.4f} ({s['priced_per_day'][d]} priced)"
+                            for d, c in s["cost_per_day"].items()) or "none priced"))
+    out.append(f"  fallback rate (backup model answered): {pct(s['fallback'], s['fallback_n'])}"
+               f" of answered requests that record both models")
+    total = sum(s["retrieval"].values())
+    out.append("  retrieval method (requests that reached a video): "
+               + (", ".join(f"{m} {pct(n, total)}" for m, n in s["retrieval"].items()) or "none"))
+    out.append(f"  answered with no citation (often a refusal): {s['no_citation']} of {s['answered']}")
+    return out
 
-        table(session, "Retrieval method", RETRIEVAL)
-        table(session, "Model, tokens and list-price cost (answered requests)", COST)
-        print("  List price, not billed: the project runs on free tiers.")
+
+def select(rows: list[dict], source: str, since: str | None, min_id: int | None) -> list[dict]:
+    """Filter rows by source, first day and first id. Pure."""
+    out = []
+    for r in rows:
+        if source != "all" and source_of(r.get("commit_sha")) != source:
+            continue
+        if since and str(r.get("created_at") or "")[:10] < since:
+            continue
+        if min_id is not None and int(r.get("id") or 0) < min_id:
+            continue
+        out.append(r)
+    return out
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("csv", help="a CSV written by export_logs.py")
+    parser.add_argument("--source", default="split",
+                        choices=["split", "all", "production", "laptop", "unknown"],
+                        help="split (default) prints each source separately")
+    parser.add_argument("--since", default=None, help="first day, YYYY-MM-DD")
+    parser.add_argument("--min-id", type=int, default=None, help="first query_logs id")
+    args = parser.parse_args()
+
+    rows = read_csv(Path(args.csv))
+    print(f"file: {args.csv}   rows: {len(rows)}"
+          + (f"   since {args.since}" if args.since else "")
+          + (f"   id >= {args.min_id}" if args.min_id is not None else ""))
+    sources = ["production", "laptop", "unknown"] if args.source == "split" else [args.source]
+    for src in sources:
+        chosen = select(rows, src, args.since, args.min_id)
+        if not chosen:
+            continue
+        print()
+        for line in report(f"source {src}", compute(chosen)):
+            print(line)
+    print("\nLaptop latency includes about 280 ms per database round trip from Delhi to Ohio;"
+          " production latency does not. Report them separately.")
 
 
 if __name__ == "__main__":
