@@ -136,7 +136,9 @@ Source: `evaluation/results/logstats_prod_in_dev_copy.json` and `.txt`. Command:
 |---|---|
 | 23 benchmark videos, 1,574 chunks embedded (fixed_1000_200) | CLAUDE.md; dev database count was 1,596 chunks including one pasted CS229 lecture (22 chunks) |
 | Chunk 2 of LXaFHI_2Hus starts at 51.72 s; 436 snippets, 20 chunks | NOTES; 20 chunks matches the dev database |
-| App about 74 MiB, LiteLLM about 202 MiB of 512 MB | NOTES; docs/problems.md (local embedding models) |
+| App alone about 74 MiB, LiteLLM alone about 202 MiB, together about 250 MiB of 512 MB | docs/problems.md (local embedding models); NOTES |
+| 'what are the three energy components, explain each' flipped to a refusal | NOTES only (not a golden question) |
+| PostgreSQL 18.6, pgvector 0.8.6 on Neon us-east-2 | NOTES; mid-term report Table 4.1 |
 | Same request 3.6 s to 27.1 s; cold start 41.5 s (22 Sep) | README 'Measured results'; mid-term report |
 | RequestBlocked from Render's IP, 14 Oct | README 'Limitations'; NOTES |
 | Rows 20 and 21 lost to a foreign key, fixed in 788cdf0 (18 Oct) | NOTES; app/main.py comment on the 404 check |
