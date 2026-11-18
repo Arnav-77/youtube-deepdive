@@ -1,0 +1,16 @@
+file: evaluation/exports/dev_logs.csv   rows: 112
+
+== source production: 20 requests ==
+  requests per day: 2026-09-21 1, 2026-09-22 2, 2026-10-14 10, 2026-10-18 5, 2026-10-27 2
+  outcomes: answered 13, failed 4, user error: bad link (400) 1, nothing retrieved 1, user error: video not added (404) 1
+  failure rate: 22% (4/18) of requests that were not user errors
+    ServiceUnavailableError: 3
+    APIConnectionError: 1
+  latency of answered requests (n=13): P50 4544 ms, P95 23913 ms, mean 7185 ms, max 27127 ms
+    CAUTION: with n=13, P95 lies between the two slowest requests.
+  list-price cost per day (USD, not billed): 2026-09-21 0.0029 (1 priced), 2026-09-22 0.0067 (2 priced), 2026-10-14 0.0020 (4 priced), 2026-10-18 0.0126 (4 priced), 2026-10-27 0.0082 (2 priced)
+  fallback rate (backup model answered): 31% (4/13) of answered requests that record both models
+  retrieval method (requests that reached a video): not recorded 67% (12/18), dense 33% (6/18)
+  answered with no citation (often a refusal): 2 of 13
+
+Laptop latency includes about 280 ms per database round trip from Delhi to Ohio; production latency does not. Report them separately.

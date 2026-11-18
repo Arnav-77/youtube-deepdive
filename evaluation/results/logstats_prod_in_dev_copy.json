@@ -1,0 +1,52 @@
+{
+ "production": {
+  "n": 20,
+  "per_day": {
+   "2026-09-21": 1,
+   "2026-09-22": 2,
+   "2026-10-14": 10,
+   "2026-10-18": 5,
+   "2026-10-27": 2
+  },
+  "outcomes": {
+   "answered": 13,
+   "failed": 4,
+   "user error: bad link (400)": 1,
+   "nothing retrieved": 1,
+   "user error: video not added (404)": 1
+  },
+  "servable": 18,
+  "failed": 4,
+  "failed_by_type": {
+   "ServiceUnavailableError": 3,
+   "APIConnectionError": 1
+  },
+  "answered": 13,
+  "latency_n": 13,
+  "p50": 4544.0,
+  "p95": 23913.399999999994,
+  "mean": 7185.307692307692,
+  "max": 27127.0,
+  "cost_per_day": {
+   "2026-09-21": 0.002873,
+   "2026-09-22": 0.00671,
+   "2026-10-14": 0.002032,
+   "2026-10-18": 0.012564,
+   "2026-10-27": 0.0082
+  },
+  "priced_per_day": {
+   "2026-09-21": 1,
+   "2026-09-22": 2,
+   "2026-10-14": 4,
+   "2026-10-18": 4,
+   "2026-10-27": 2
+  },
+  "fallback": 4,
+  "fallback_n": 13,
+  "retrieval": {
+   "not recorded": 12,
+   "dense": 6
+  },
+  "no_citation": 2
+ }
+}

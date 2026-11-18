@@ -1,0 +1,84 @@
+database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+DeepDive evaluation summary (evaluation/run_all.py). No API calls.
+chunking_run fixed_1000_200, k=5. Human = Arnav's labels; AI = written or labelled by Claude Code, never mixed into human numbers.
+
+RETRIEVAL
+  labels set       questions      method      hits     R@5     MRR     R@1 |off|s    late
+  human  reported  all            dense     14/14    1.000   0.917  12/14      15   5/14 
+  human  reported  all            lexical   12/14    0.857   0.631   7/14      40   1/12 
+  human  reported  all            hybrid    14/14    1.000   0.815  10/14      22   3/14 
+  human  dev       all            dense      5/5     1.000   0.750   3/5       20   3/5  
+  human  dev       all            lexical    4/5     0.800   0.640   3/5       45   2/4  
+  human  dev       all            hybrid     5/5     1.000   0.717   3/5       28   2/5  
+  AI     reported  all            dense     36/36    1.000   0.986  35/36      18  18/36 
+  AI     reported  speaker_words  dense     18/18    1.000   1.000  18/18      19  10/18 
+  AI     reported  paraphrase     dense     18/18    1.000   0.972  17/18      16   8/18 
+  AI     reported  negative       dense    negatives: 18, retrieval returned nothing for 0
+  AI     reported  all            lexical   25/36    0.694   0.627  21/36      20   9/25 
+  AI     reported  speaker_words  lexical   18/18    1.000   0.963  17/18      19   8/18 
+  AI     reported  paraphrase     lexical    7/18    0.389   0.292   4/18      29   1/7  
+  AI     reported  negative       lexical  negatives: 18, retrieval returned nothing for 0
+  AI     reported  all            hybrid    33/36    0.917   0.788  26/36      23  11/33 
+  AI     reported  speaker_words  hybrid    18/18    1.000   0.972  17/18      21   7/18 
+  AI     reported  paraphrase     hybrid    15/18    0.833   0.604   9/18      24   4/15 
+  AI     reported  negative       hybrid   negatives: 18, retrieval returned nothing for 0
+  AI     dev       all            dense      2/2     1.000   1.000   2/2       19   1/2  
+  AI     dev       speaker_words  dense      1/1     1.000   1.000   1/1       23   0/1  
+  AI     dev       paraphrase     dense      1/1     1.000   1.000   1/1       15   1/1  
+  AI     dev       negative       dense    negatives: 1, retrieval returned nothing for 0
+  AI     dev       all            lexical    1/2     0.500   0.500   1/2       23   0/1  
+  AI     dev       speaker_words  lexical    1/1     1.000   1.000   1/1       23   0/1  
+  AI     dev       paraphrase     lexical    0/1     0.000   0.000   0/1      n/a   0/0  
+  AI     dev       negative       lexical  negatives: 1, retrieval returned nothing for 0
+  AI     dev       all            hybrid     2/2     1.000   0.600   1/2       31   0/2  
+  AI     dev       speaker_words  hybrid     1/1     1.000   1.000   1/1       23   0/1  
+  AI     dev       paraphrase     hybrid     1/1     1.000   0.200   0/1       39   0/1  
+  AI     dev       negative       hybrid   negatives: 1, retrieval returned nothing for 0
+
+PAIRED, dense vs lexical (reciprocal rank per question)
+  human set, all 19 questions: dense better 9, worse 0, tied 10
+  human set, dense vs hybrid: dense better 5, worse 0, tied 14
+  AI set, speaker_words: dense better 1, worse 0, tied 18
+  AI set, paraphrase: dense better 15, worse 0, tied 4
+
+GROUNDING (segments judged against their own cited excerpts; docs/grounding.md)
+  HUMAN labels (Arnav), human questions, all saved answers
+    answers 1 (refused 0), segments 3
+    grounding rate 100% (3/3), partly 0% (0/3), unsupported 0% (0/3)
+    answer-level (every segment supported) 100% (1/1)
+    answer-level by model: gemini-3.6-flash 100% (1/1)
+    refusal: correct 0, missed 0, false 0 (retrieval 0, generation 0), answered with gold 1
+    unlabelled saved answers: 18
+  AI labels (claude-code (claude-opus-5-5)), human questions, this run (local-*)
+    answers 19 (refused 1), segments 31
+    grounding rate 100% (31/31), partly 0% (0/31), unsupported 0% (0/31)
+    answer-level (every segment supported) 100% (18/18)
+    answer-level by model: gemini-3.5-flash-lite 100% (18/18)
+    refusal: correct 0, missed 0, false 1 (retrieval 0, generation 1), answered with gold 18
+    unlabelled saved answers: 0
+  AI labels (claude-code (claude-opus-5-5)), human questions, earlier run (commit 'local' and Render)
+    answers 19 (refused 1), segments 40
+    grounding rate 98% (39/40), partly 2% (1/40), unsupported 0% (0/40)
+    answer-level (every segment supported) 94% (17/18)
+    answer-level by model: gemini-3.5-flash-lite 100% (6/6); gemini-3.6-flash 92% (11/12)
+    refusal: correct 0, missed 0, false 1 (retrieval 0, generation 1), answered with gold 18
+    unlabelled saved answers: 0
+  AI labels (claude-code (claude-opus-5-5)), AI-written questions, this run
+    answers 40 (refused 20), segments 35
+    grounding rate 94% (33/35), partly 6% (2/35), unsupported 0% (0/35)
+    answer-level (every segment supported) 90% (18/20)
+    answer-level by model: gemini-3.5-flash-lite 90% (18/20)
+    refusal: correct 19, missed 0, false 1 (retrieval 0, generation 1), answered with gold 20
+    unlabelled saved answers: 0
+
+== Agreement: human (rows) vs AI (columns) ==
+  answers labelled by both: 2 (row24.json, row26.json)
+  segment agreement: 100% (5/5)
+  refused agreement: 100% (2/2)
+                  supported       partly  unsupported
+  supported               5            0            0
+  partly                  0            0            0
+  unsupported             0            0            0
+  CAUTION: 2 answers and 5 segments are far too few to trust this agreement figure.
+
+query embeddings: 152 cached, 0 API requests

@@ -150,6 +150,18 @@ def main():
     o += ["- Budget used: `evaluation/answers/finish_state/finish_budget.json` (gitignored); per request: "
           "`evaluation/answers/finish_state/finish_runs.jsonl` (gitignored).", ""]
 
+    prod_copy = (load("logstats_prod_in_dev_copy.json") or {}).get("production") or {}
+    o += ["## 5b. Production rows inside the dev branch copy (Report Table 7.6)", "",
+          "Source: `evaluation/results/logstats_prod_in_dev_copy.json` and `.txt`. Command: `python evaluation/log_stats.py "
+          "evaluation/exports/dev_logs.csv --source production --json evaluation/results/logstats_prod_in_dev_copy.json`. "
+          "These rows were written by Render in production (commit_sha is a Render commit id) before the dev branch "
+          "was copied on 29 Oct, so they are real production requests, but only up to 27 Oct and few.", ""]
+    if prod_copy:
+        o += [f"- requests {prod_copy['n']} on days {prod_copy['per_day']}; answered {prod_copy['answered']}",
+              f"- latency n={prod_copy['latency_n']}: P50 {prod_copy['p50']:.0f} ms, P95 {prod_copy['p95']:.0f} ms "
+              f"(n below 20: P95 lies between the two slowest), mean {prod_copy['mean']:.0f} ms, max {prod_copy['max']:.0f} ms",
+              f"- failure rate {pct(prod_copy['failed'], prod_copy['servable'])}; by type {prod_copy['failed_by_type']}",
+              f"- fallback {pct(prod_copy['fallback'], prod_copy['fallback_n'])}", ""]
     o += ["## 6. Tests", ""]
     if tc:
         o.append(f"- {tc['date']}: {tc['collected']} collected, {tc['passed']} passed, {tc['skipped']} skipped, "
