@@ -311,3 +311,50 @@ def test_refusal_accuracy_is_a_percentage_when_a_negative_golden_question_exists
     text = format_report(result, GOLDEN)
     assert "refusal accuracy: 100% (1/1)" in text
     assert "not measurable" not in text
+
+
+# --- finish run additions: several golden files, commit filter, agreement ---
+
+from evaluation.score_grounding import agreement, format_agreement, merge_golden
+
+
+def test_merge_golden_combines_videos_in_order():
+    a = {"videos": [{"video_id": "a"}]}
+    b = {"videos": [{"video_id": "b"}]}
+    assert [v["video_id"] for v in merge_golden([a, None, b])["videos"]] == ["a", "b"]
+
+
+def test_commit_filter_skips_answers_from_other_commits(tmp_path):
+    data = answer("Fact one [1].")
+    data["commit_sha"] = "local"
+    other = answer("Fact two [1].")
+    other["commit_sha"] = "local-abc1234"
+    write(tmp_path, "row1.json", data)
+    write(tmp_path, "row2.json", other)
+    labels = {"answers": [block("row1.json", data, False, ["supported"]),
+                          block("row2.json", other, False, ["unsupported"])]}
+    result = collect(labels, GOLDEN, tmp_path, commit_prefix="local-")
+    assert [r.file for r in result.rows] == ["row2.json"]
+
+
+def test_agreement_counts_only_segments_both_files_labelled(tmp_path):
+    data = answer("Fact one [1]. Fact two [1]. Fact three [1].")
+    write(tmp_path, "row1.json", data)
+    saved = collect({"answers": []}, GOLDEN, tmp_path).saved
+    human = {"answers": [block("row1.json", data, False, ["supported", "supported", None])]}
+    ai = {"answers": [block("row1.json", data, False, ["supported", "partly", "unsupported"])]}
+    ag = agreement(human, ai, saved)
+    assert ag["segments"] == 2 and ag["agree"] == 1
+    assert ag["table"][("supported", "partly")] == 1
+    assert ag["refused_pairs"] == 1 and ag["refused_agree"] == 1
+    assert "far too few" in format_agreement(ag, "a", "b")
+
+
+def test_agreement_ignores_a_stale_block(tmp_path):
+    data = answer("Fact one [1].")
+    write(tmp_path, "row1.json", data)
+    saved = collect({"answers": []}, GOLDEN, tmp_path).saved
+    stale = block("row1.json", answer("Different text [1]."), False, ["supported"])
+    good = block("row1.json", data, False, ["supported"])
+    ag = agreement({"answers": [stale]}, {"answers": [good]}, saved)
+    assert ag["segments"] == 0 and ag["answers"] == []

@@ -1,6 +1,18 @@
 """Score grounding and refusal from the hand labels. Reads files only.
 
     python evaluation/score_grounding.py
+    python evaluation/score_grounding.py --labels evaluation/grounding_labels_agent.yaml \
+        --golden evaluation/golden_set.yaml --golden evaluation/golden_set_agent.yaml \
+        --commit local- --compare evaluation/grounding_labels.yaml
+
+--labels picks the labels file (default: Arnav's grounding_labels.yaml).
+--golden may be given more than once; the files' videos are combined. An
+answer whose question is in none of them is an example, left out of numbers.
+--commit PREFIX scores only answers whose saved commit_sha starts with PREFIX
+(the finish run's answers carry "local-<sha>").
+--compare OTHER prints the agreement between the two labels files on the
+segments both have labelled. Human and AI labels are never added together:
+each file gives its own numbers, and agreement is a separate table.
 
 Inputs: evaluation/grounding_labels.yaml (hand labels), evaluation/answers/*.json
 (saved answers) and evaluation/golden_set.yaml (gold spans). No database, no
@@ -114,8 +126,17 @@ def check_block(block: dict, answer: dict) -> list:
     return problems
 
 
-def collect(labels: dict, golden: dict, answers_dir: Path) -> Collected:
-    """Read every saved answer and every label block. Pure apart from reading files."""
+def merge_golden(goldens: list) -> dict:
+    """One golden dict from several, videos combined in order. Pure."""
+    return {"videos": [v for g in goldens for v in (g or {}).get("videos") or []]}
+
+
+def collect(labels: dict, golden: dict, answers_dir: Path, commit_prefix: str | None = None) -> Collected:
+    """Read every saved answer and every label block. Pure apart from reading files.
+
+    With commit_prefix, blocks whose saved answer has a commit_sha not
+    starting with it are skipped entirely (neither scored nor listed).
+    """
     result = Collected()
     gold = golden_lookup(golden)
 
@@ -138,6 +159,8 @@ def collect(labels: dict, golden: dict, answers_dir: Path) -> Collected:
             continue
 
         answer = result.saved[name]
+        if commit_prefix is not None and not str(answer.get("commit_sha") or "").startswith(commit_prefix):
+            continue
         problems = check_block(block, answer)
         if problems:
             result.errors += [f"{name}: {p}" for p in problems]
@@ -287,17 +310,87 @@ def format_report(collected: Collected, golden: dict) -> str:
     return "\n".join(lines)
 
 
+LABEL_ORDER = ("supported", "partly", "unsupported")
+
+
+def agreement(labels_a: dict, labels_b: dict, saved: dict) -> dict:
+    """Segment and refusal agreement between two labels files. Pure.
+
+    Only answers labelled in both files count, and only when both blocks
+    still match the saved text (same segment hashes). A segment counts when
+    both files gave it a label; refusals count when both set refused.
+    """
+    blocks_a = {b.get("answer_file"): b for b in (labels_a or {}).get("answers") or []}
+    blocks_b = {b.get("answer_file"): b for b in (labels_b or {}).get("answers") or []}
+    table = {(x, y): 0 for x in LABEL_ORDER for y in LABEL_ORDER}
+    out = {"answers": [], "segments": 0, "agree": 0, "table": table,
+           "refused_pairs": 0, "refused_agree": 0}
+    for name in sorted(set(blocks_a) & set(blocks_b)):
+        a, b = blocks_a[name], blocks_b[name]
+        if name not in saved or check_block(a, saved[name]) or check_block(b, saved[name]):
+            continue
+        if a.get("refused") is not None and b.get("refused") is not None:
+            out["refused_pairs"] += 1
+            out["refused_agree"] += a["refused"] == b["refused"]
+        used = False
+        for sa, sb in zip(a.get("segments") or [], b.get("segments") or []):
+            la, lb = sa.get("label"), sb.get("label")
+            if la in LABEL_ORDER and lb in LABEL_ORDER:
+                used = True
+                out["segments"] += 1
+                out["agree"] += la == lb
+                table[(la, lb)] += 1
+        if used:
+            out["answers"].append(name)
+    return out
+
+
+def format_agreement(ag: dict, name_a: str, name_b: str) -> str:
+    lines = [f"== Agreement: {name_a} (rows) vs {name_b} (columns) =="]
+    lines.append(f"  answers labelled by both: {len(ag['answers'])} ({', '.join(ag['answers']) or 'none'})")
+    lines.append(f"  segment agreement: {pct(ag['agree'], ag['segments'])}")
+    lines.append(f"  refused agreement: {pct(ag['refused_agree'], ag['refused_pairs'])}")
+    lines.append("  " + " " * 12 + "".join(f"{c:>13}" for c in LABEL_ORDER))
+    for r in LABEL_ORDER:
+        lines.append(f"  {r:<12}" + "".join(f"{ag['table'][(r, c)]:>13}" for c in LABEL_ORDER))
+    if len(ag["answers"]) < 10:
+        lines.append(f"  CAUTION: {len(ag['answers'])} answers and {ag['segments']} segments are "
+                     "far too few to trust this agreement figure.")
+    return "\n".join(lines)
+
+
+def load_yaml(path: Path) -> dict:
+    return (yaml.safe_load(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}) or {}
+
+
 def main() -> None:
-    golden = yaml.safe_load(GOLDEN_PATH.read_text(encoding="utf-8")) or {}
-    labels = (yaml.safe_load(LABELS_PATH.read_text(encoding="utf-8"))
-              if LABELS_PATH.exists() else {}) or {}
-    collected = collect(labels, golden, ANSWERS_DIR)
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--labels", default=str(LABELS_PATH))
+    parser.add_argument("--golden", action="append", default=None,
+                        help="golden file; repeat to combine (default: golden_set.yaml)")
+    parser.add_argument("--commit", default=None, help="score only answers whose commit_sha starts with this")
+    parser.add_argument("--compare", default=None, help="another labels file, for agreement")
+    args = parser.parse_args()
+
+    golden = merge_golden([load_yaml(Path(g)) for g in (args.golden or [GOLDEN_PATH])])
+    labels = load_yaml(Path(args.labels))
+    collected = collect(labels, golden, ANSWERS_DIR, args.commit)
     if collected.errors:
         print("NOT SCORED. The labels file has problems that must be fixed first:")
         for problem in collected.errors:
             print(f"  - {problem}")
         sys.exit(1)
+    print(f"labels: {Path(args.labels).name}   labeller: {labels.get('labeller', 'Arnav Soni (human)')}")
+    print(f"golden: {', '.join(Path(g).name for g in (args.golden or [GOLDEN_PATH]))}"
+          + (f"   answers with commit_sha starting {args.commit!r}" if args.commit else ""))
     print(format_report(collected, golden))
+    if args.compare:
+        other = load_yaml(Path(args.compare))
+        print()
+        print(format_agreement(agreement(labels, other, collected.saved),
+                               Path(args.labels).name, Path(args.compare).name))
 
 
 if __name__ == "__main__":
