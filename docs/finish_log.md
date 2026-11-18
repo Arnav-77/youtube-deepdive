@@ -67,3 +67,16 @@ One entry per phase: what was done, commit ids, numbers produced, and anything s
 - Page count: LibreOffice is not installed, so no PDF could be made. A layout estimate gives about 37 pages; Word's count after updating fields is the real one.
 - 7 marked placeholders: 3 screenshots, 3 production numbers pending, 1 spot-check result pending.
 - Corrections made while proofreading the generated text: the page has no paste form (the paste is POST /videos/paste); the late-citation explanation; the memory figure (about 250 MiB, per docs/problems.md); the title keeps "Conversational" and drops "Multi-Turn".
+
+## Phase 4: repository documentation (done)
+
+- README.md rewritten (commit 162d6f0): what it does, live /ui/ page (live after Arnav's deploy), Mermaid architecture, the /ask flow with file and function names, local setup, tests, one-command evaluation, public paste rules, results with sources, limitations and what is not built.
+- `.env.example` listed 2 of the 10 setting names the app reads; it now lists all 10, names and comments only (7e212ed).
+- LICENSE (MIT) already existed (21 Sep); unchanged.
+- `.github/workflows/tests.yml`: Python 3.12, installs both requirements files, runs pytest on push and pull request (7e212ed).
+- CLAUDE.md: the log_stats command updated to the CSV workflow (162d6f0). docs/decisions.md: the finish run's decisions (f19993a).
+
+## Phase 5: demo kit (done)
+
+- `docs/demo_script.md` (e4fe4ba, corrected later): five minutes, cold-start warning, Everest question (citation at 51.72 s), a paraphrase dense search gets right, clicking a citation, the paste flow through POST /videos/paste (the page has no paste form) and the "not checked" label, /docs, and fallbacks with exact local commands.
+- `docs/demo_questions.md`: 7 questions whose answers the AI judge labelled fully supported in this run (rows 56, 66, 61, 70, 72, 82, 113), plus one correct refusal to show.

@@ -23,7 +23,7 @@ Point out the numbered citations in the answer. Say: the model only ever saw fiv
 
 **2:00 to 2:45. A paraphrase that word search misses.** Pick "All Machine Learning algorithms explained in 17 min" (E0Hmnixke2g). Ask:
 
-> How does a model get trained on data where every example already has the right answer attached?
+> How does a model get trained on data where every example comes with the correct answer?
 
 The video calls this supervised learning and the question never uses those words. Say: in the evaluation, word search missed this passage entirely and dense search ranked it first (`evaluation/results/retrieval_human.txt`).
 
