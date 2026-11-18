@@ -94,6 +94,7 @@ def main() -> None:
     parser.add_argument("csv")
     parser.add_argument("--labels", action="append", default=[],
                         help="labels file with refused values; repeat for several (first wins)")
+    parser.add_argument("--json", default=None, help="also write the numbers to this JSON file")
     parser.add_argument("--run-prefix", default="local-",
                         help="commit_sha prefix of this run's rows (default local-)")
     args = parser.parse_args()
@@ -105,11 +106,16 @@ def main() -> None:
     print(f"file: {args.csv}   rows: {len(rows)}   labels: {', '.join(Path(p).name for p in args.labels) or 'none'}")
     print("A valid citation is a number between 1 and the number of excerpts sent; "
           "code turns it into a ?t= timestamp link.")
-    for title, group in ((f"this run (commit_sha starting {args.run_prefix!r})", this_run),
-                         ("all earlier rows", earlier)):
+    data = {}
+    for key, title, group in (("this_run", f"this run (commit_sha starting {args.run_prefix!r})", this_run),
+                              ("earlier", "all earlier rows", earlier)):
         print()
-        for line in report(title, rate(group, refusals)):
+        data[key] = rate(group, refusals)
+        for line in report(title, data[key]):
             print(line)
+    if args.json:
+        import json
+        Path(args.json).write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

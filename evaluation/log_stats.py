@@ -141,6 +141,7 @@ def main() -> None:
                         help="split (default) prints each source separately")
     parser.add_argument("--since", default=None, help="first day, YYYY-MM-DD")
     parser.add_argument("--min-id", type=int, default=None, help="first query_logs id")
+    parser.add_argument("--json", default=None, help="also write the numbers to this JSON file")
     args = parser.parse_args()
 
     rows = read_csv(Path(args.csv))
@@ -148,13 +149,18 @@ def main() -> None:
           + (f"   since {args.since}" if args.since else "")
           + (f"   id >= {args.min_id}" if args.min_id is not None else ""))
     sources = ["production", "laptop", "unknown"] if args.source == "split" else [args.source]
+    data = {}
     for src in sources:
         chosen = select(rows, src, args.since, args.min_id)
         if not chosen:
             continue
         print()
-        for line in report(f"source {src}", compute(chosen)):
+        data[src] = compute(chosen)
+        for line in report(f"source {src}", data[src]):
             print(line)
+    if args.json:
+        import json
+        Path(args.json).write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
     print("\nLaptop latency includes about 280 ms per database round trip from Delhi to Ohio;"
           " production latency does not. Report them separately.")
 

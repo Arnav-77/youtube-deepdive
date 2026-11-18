@@ -1,7 +1,7 @@
 """Every evaluation number in one command, with no API calls.
 
     python evaluation/run_all.py
-    python evaluation/run_all.py > evaluation/results/summary.txt
+    python evaluation/run_all.py --json evaluation/results/summary.json > evaluation/results/summary.txt
 
 1. Retrieval: dense, lexical and hybrid on the human set (golden_set.yaml)
    and the AI-written set (golden_set_agent.yaml), reported and dev apart,
@@ -33,6 +33,9 @@ AGENT_GOLDEN = HERE / "golden_set_agent.yaml"
 HUMAN_LABELS = HERE / "grounding_labels.yaml"
 AGENT_LABELS = HERE / "grounding_labels_agent.yaml"
 RUN = "fixed_1000_200"
+# Every number printed is also kept here and written with --json, so the
+# report builder reads numbers from a file instead of re-running anything.
+DATA: dict = {}
 K = 5
 METHODS = ("dense", "lexical", "hybrid")
 
@@ -65,6 +68,7 @@ def retrieval_section(session, golden: dict, name: str, by_type: bool) -> tuple[
     from evaluation.run_eval import METHODS as FUNCS, evaluate, summarise
 
     lines, records = [], {}
+    rows = DATA.setdefault("retrieval", [])
     for set_name in ("reported", "dev"):
         for method in METHODS:
             recs = []
@@ -78,6 +82,8 @@ def retrieval_section(session, golden: dict, name: str, by_type: bool) -> tuple[
                 if not group:
                     continue
                 s = summarise(group, K)
+                rows.append({"labels": name, "set": set_name, "questions": label,
+                             "method": method, **s})
                 if s["n"]:
                     lines.append(f"  {name:<6} {set_name:<9} {label:<14} {method:<8} "
                                  f"{s['hits']:>3}/{s['n']:<3} {fmt(s['recall']):>7} {fmt(s['mrr']):>7} "
@@ -90,7 +96,7 @@ def retrieval_section(session, golden: dict, name: str, by_type: bool) -> tuple[
     return lines, records
 
 
-def grounding_section(title: str, labels: dict, goldens: list, commit: str | None) -> list:
+def grounding_section(title: str, labels: dict, goldens: list, commit: str | None, key: str = "") -> list:
     from evaluation.answer_files import ANSWERS_DIR
     from evaluation.score_grounding import collect, merge_golden, summarise
 
@@ -107,8 +113,13 @@ def grounding_section(title: str, labels: dict, goldens: list, commit: str | Non
     by_model = {}
     for r in c.rows:
         by_model.setdefault(r.model, []).append(r)
+    per_model = {m: summarise(rs) for m, rs in sorted(by_model.items())}
     models = "; ".join(f"{m} {p(sm['every_segment_supported'], sm['answered'])}"
-                       for m, sm in ((m, summarise(rs)) for m, rs in sorted(by_model.items())))
+                       for m, sm in per_model.items())
+    if key:
+        DATA.setdefault("grounding", {})[key] = {
+            "title": title, **s, "unlabelled": len(c.unlabelled),
+            "by_model": per_model, "files": [r.file for r in c.rows]}
     return [
         f"  {title}",
         f"    answers {s['answers']} (refused {s['refused']}), segments {s['segments']}",
@@ -157,9 +168,11 @@ def main() -> None:
     out += ["", "PAIRED, dense vs lexical (reciprocal rank per question)"]
     both = {m: human_recs[("reported", m)] + human_recs[("dev", m)] for m in METHODS}
     pr = paired(both["dense"], both["lexical"])
+    DATA["paired"] = {"human_dense_vs_lexical": pr}
     out.append(f"  human set, all {sum(pr.values())} questions: dense better {pr['better']}, "
                f"worse {pr['worse']}, tied {pr['tied']}")
     ph = paired(both["dense"], both["hybrid"])
+    DATA["paired"]["human_dense_vs_hybrid"] = ph
     out.append(f"  human set, dense vs hybrid: dense better {ph['better']}, worse {ph['worse']}, "
                f"tied {ph['tied']}")
     if agent:
@@ -167,29 +180,38 @@ def main() -> None:
         for t in ("speaker_words", "paraphrase"):
             pa = paired([r for r in ab["dense"] if r["type"] == t],
                         [r for r in ab["lexical"] if r["type"] == t])
+            DATA["paired"][f"ai_{t}_dense_vs_lexical"] = pa
             out.append(f"  AI set, {t}: dense better {pa['better']}, worse {pa['worse']}, "
                        f"tied {pa['tied']}")
 
     human_labels, agent_labels = load(HUMAN_LABELS), load(AGENT_LABELS)
     out += ["", "GROUNDING (segments judged against their own cited excerpts; docs/grounding.md)"]
     out += grounding_section("HUMAN labels (Arnav), human questions, all saved answers",
-                             human_labels, [human], None)
+                             human_labels, [human], None, "human")
     if agent_labels:
         who = agent_labels.get("labeller", "claude-code")
         out += grounding_section(f"AI labels ({who}), human questions, this run (local-*)",
-                                 agent_labels, [human], "local-")
+                                 agent_labels, [human], "local-", "ai_human_this")
         out += grounding_section(f"AI labels ({who}), human questions, earlier run (commit 'local' and Render)",
                                  {"answers": [b for b in agent_labels.get("answers") or []
-                                              if b.get("run") == "earlier"]}, [human], None)
+                                              if b.get("run") == "earlier"]}, [human], None,
+                                 "ai_human_earlier")
         out += grounding_section(f"AI labels ({who}), AI-written questions, this run",
-                                 agent_labels, [agent], "local-")
+                                 agent_labels, [agent], "local-", "ai_agent_this")
         from evaluation.answer_files import ANSWERS_DIR
         from evaluation.score_grounding import collect, merge_golden
         saved = collect({}, merge_golden([human]), ANSWERS_DIR).saved
-        out += [""] + format_agreement(agreement(human_labels, agent_labels, saved),
-                                       "human", "AI").splitlines()
+        ag = agreement(human_labels, agent_labels, saved)
+        DATA["agreement"] = {k: v for k, v in ag.items() if k != "table"}
+        DATA["agreement"]["table"] = {f"{a}|{b}": n for (a, b), n in ag["table"].items()}
+        out += [""] + format_agreement(ag, "human", "AI").splitlines()
     out += ["", f"query embeddings: {CACHE_STATS['hits']} cached, {CACHE_STATS['misses']} API requests"]
+    DATA["embedding_api_requests"] = CACHE_STATS["misses"]
     print("\n".join(out))
+    if "--json" in sys.argv:
+        import json
+        path = Path(sys.argv[sys.argv.index("--json") + 1])
+        path.write_text(json.dumps(DATA, indent=1, default=str) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
