@@ -1,5 +1,18 @@
 # Design decisions
 
+## 18 Nov 2026: final evaluation decisions (finish run, made by Claude Code under the approved plan)
+
+**Decision.** (1) A second, AI-written question set (`evaluation/golden_set_agent.yaml`, `author: claude-code`) and AI grounding labels (`evaluation/grounding_labels_agent.yaml`) are kept in their own files and scored on their own, never added to Arnav's labels. (2) Answers for evaluation go through the real `/ask` route with FastAPI's TestClient on the dev branch, never through a direct model call. (3) `log_stats.py` reads a CSV from `export_logs.py` instead of querying the database. (4) Scripts that write, or should never touch production, call `evaluation/dev_guard.py`, which prints only the host and stops unless it is the dev branch. (5) The evaluation runner sets LiteLLM's `REQUEST_TIMEOUT` (120 s) for its own process; `app/` is unchanged.
+
+**Why.** (1) 19 hand-labelled questions are too few, but numbers from AI labels must stay distinguishable from human ones. (2) Only the real route exercises the live prompt, retrieval, fallback and logging together. (3) Production numbers then come from one read-only SELECT, and the same file can be re-scored offline. (4) A wrong `.env` should stop a script before it writes, not after. (5) One Gemini call hung for about 5 minutes; LiteLLM's default timeout is 6000 s.
+
+**Alternatives considered.**
+- Merging AI questions into `golden_set.yaml`. Rejected: the human labels are Arnav's judgement and must stay his.
+- Calling Gemini directly for answers. Rejected: it would skip the code being evaluated.
+- Fixing the missing timeout in `app/generation.py`. Rejected for this run: the deployed code was frozen; the bug is a strict xfail test in `tests/test_known_bugs.py`.
+
+**Consequences.** Grounding results rest mostly on an AI judge until Arnav's spot check and labels exist. Production latency and the production citation rate are measured only when Arnav runs the export and live-latency scripts.
+
 ## 10 Nov 2026: the paste route's status codes, the progress route, and the panel's real layout
 
 **Decision.** POST /videos/paste returns 202 while embedding is pending and 200 once every chunk is embedded. Resending the same paste to a video that exists resumes it, and a different paste gets 409. A body over the size limit is 422, not 413, so the codes match rule 6. The raw body limit is 2 x 300 KB + 4 KB, because JSON escaping can double newlines and quotes; the transcript itself is checked separately. GET /videos/{id} is public and returns counts only.
