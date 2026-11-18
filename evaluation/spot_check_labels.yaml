@@ -1,0 +1,125 @@
+# Arnav's spot check of 20 AI-labelled segments (see evaluation/answers/spot_check.md).
+# Fill each label by hand: supported | partly | unsupported. Then run
+#   python evaluation/spot_check_agreement.py
+# Seed 20261118. No transcript text in this file.
+segments:
+  - item: 1
+    answer_file: "row24.json"
+    index: 0
+    hash: "b60f4e6fe70d"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 2
+    answer_file: "row24.json"
+    index: 2
+    hash: "785f03825dfa"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 3
+    answer_file: "row34.json"
+    index: 0
+    hash: "578dbb3fd496"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 4
+    answer_file: "row37.json"
+    index: 0
+    hash: "7ae3a263e911"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 5
+    answer_file: "row41.json"
+    index: 3
+    hash: "c06ecdf73210"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 6
+    answer_file: "row43.json"
+    index: 2
+    hash: "a9ebbe97df26"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 7
+    answer_file: "row43.json"
+    index: 3
+    hash: "495340fc6c0e"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 8
+    answer_file: "row44.json"
+    index: 0
+    hash: "735fdfb6e6ef"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 9
+    answer_file: "row44.json"
+    index: 1
+    hash: "3cd63cb863e1"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 10
+    answer_file: "row49.json"
+    index: 0
+    hash: "60c1f48366cb"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 11
+    answer_file: "row56.json"
+    index: 1
+    hash: "30c486912118"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 12
+    answer_file: "row61.json"
+    index: 1
+    hash: "dd89ae63a4f7"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 13
+    answer_file: "row64.json"
+    index: 0
+    hash: "f31405fcf64a"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 14
+    answer_file: "row69.json"
+    index: 0
+    hash: "7349984c562f"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 15
+    answer_file: "row90.json"
+    index: 0
+    hash: "d0d1a6cb2dd0"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 16
+    answer_file: "row94.json"
+    index: 0
+    hash: "e4c75c50716d"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 17
+    answer_file: "row98.json"
+    index: 0
+    hash: "38c4d84ed5fe"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 18
+    answer_file: "row98.json"
+    index: 1
+    hash: "95a5d8089743"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 19
+    answer_file: "row104.json"
+    index: 0
+    hash: "5858b525a9d9"
+    label:    # supported | partly | unsupported
+    note:
+  - item: 20
+    answer_file: "row114.json"
+    index: 0
+    hash: "cae6c2a9da9e"
+    label:    # supported | partly | unsupported
+    note:

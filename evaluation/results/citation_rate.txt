@@ -1,0 +1,18 @@
+file: evaluation/exports/dev_logs.csv   rows: 112   labels: grounding_labels_agent.yaml, grounding_labels.yaml
+A valid citation is a number between 1 and the number of excerpts sent; code turns it into a ?t= timestamp link.
+
+== this run (commit_sha starting 'local-') ==
+  answered responses: 59
+  with at least one valid citation: 66.1% (39/59)   target 90%: not met
+  refusals (labelled refused: true): 21 of 59 labelled answers; refusals that still cite: 1
+  excluding labelled refusals: 100.0% (38/38)
+  answers with no refusal label: 0 (of these, 0 cite nothing: an upper bound on unlabelled refusals)
+  answers citing an excerpt never sent: 0 of 59
+
+== all earlier rows ==
+  answered responses: 43
+  with at least one valid citation: 93.0% (40/43)   target 90%: met
+  refusals (labelled refused: true): 1 of 20 labelled answers; refusals that still cite: 0
+  excluding labelled refusals: 95.2% (40/42)
+  answers with no refusal label: 23 (of these, 2 cite nothing: an upper bound on unlabelled refusals)
+  answers citing an excerpt never sent: 0 of 43
