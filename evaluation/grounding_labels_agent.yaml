@@ -1,0 +1,1363 @@
+# AI-LABELLED grounding labels. NOT Arnav's labels.
+#
+# labeller: claude-code (claude-opus-5-5), as an AI judge, during the unattended finish run on
+# 18 Nov 2026 (report_src/finish_plan.md, step 2d). Each saved answer was read
+# with `python evaluation/label_answer.py --show` and judged with the rubric in
+# docs/grounding.md: a segment is judged only against the excerpts cited in
+# its own run; uncited text is unsupported; a true claim the excerpts do not
+# state is unsupported. `reason` is the judge's one-line reason.
+#
+# run: this    answered in the finish run (commit_sha local-<sha>)
+# run: earlier saved before the finish run (rows 24, 26, 33 to 50)
+#
+# Scored on its own (score_grounding.py --labels this file); never added to
+# the human labels in grounding_labels.yaml. Rows 24 and 26 are labelled in
+# both files so agreement can be shown; two answers are far too few to trust
+# that agreement figure. No transcript text here.
+labeller: "claude-code (claude-opus-5-5)"
+answers:
+  - answer_file: "row24.json"
+    question: "What did the speaker learn from the person who climbed Everest?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "b60f4e6fe70d"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the climber's advice not to look up and the reason right after it; the 'because' restates that reason."
+      - index: 1
+        cited: [1]
+        hash: "656ae9dd7c19"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the step sequence: eyes down, a step, a pause, gather yourself, decide the next step."
+      - index: 2
+        cited: [1]
+        hash: "785f03825dfa"
+        label: supported
+        note: 
+        reason: "Excerpt 1 has the speaker tie the advice to daunting big goals broken into specific steps."
+  - answer_file: "row26.json"
+    question: "why should you not look up when climbing a mountain"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "4954d28fbde5"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 both say looking up means the mountain can break you."
+      - index: 1
+        cited: [1]
+        hash: "1abeda7cd95f"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the reason in the speaker's words: the death zone above 8,000 m, low oxygen, weaker judgment."
+  - answer_file: "row33.json"
+    question: "how to be consistent"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "012af960cf30"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the information is absent; no answer to the question."
+  - answer_file: "row34.json"
+    question: "What should I do the moment I notice I've got distracted?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "578dbb3fd496"
+        label: supported
+        note: 
+        reason: "Excerpt 2 says to attach one useful action right after the reflex fires; excerpts 1 and 2 say keep it small and easy."
+  - answer_file: "row35.json"
+    question: "What is the second habit talked about in this video?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [2]
+        hash: "3550e503f2ab"
+        label: supported
+        note: 
+        reason: "Excerpt 2 says the second attention habit is controlling your input."
+  - answer_file: "row36.json"
+    question: "What is the first energy habit talked about?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 4]
+        hash: "12117a907f94"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 4 say the first energy habit is to quantize the action."
+      - index: 1
+        cited: [1, 4]
+        hash: "a9c03ef61892"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 4 explain quantizing as breaking the habit into small packets."
+  - answer_file: "row37.json"
+    question: "what is the markov property"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.5-flash-lite"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "7ae3a263e911"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states the future depends only on the current state; excerpt 2 names it the Markov property."
+      - index: 1
+        cited: [1]
+        hash: "2ee36bafc775"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the mathematical form: step n+1 depends only on step n."
+  - answer_file: "row38.json"
+    question: "what does the restaurant example show"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "a08123951e08"
+        label: supported
+        note: 
+        reason: "Excerpt 1 builds the restaurant example into a diagram and calls it a Markov chain."
+      - index: 1
+        cited: [4]
+        hash: "89b26924c12b"
+        label: supported
+        note: 
+        reason: "Excerpt 4 uses the restaurant example (only the third day matters) and names the Markov property."
+      - index: 2
+        cited: [2]
+        hash: "3e0d8e14d096"
+        label: partly
+        note: "support found in [4]"
+        reason: "Excerpt 2 states the property's content but not that this is what the Markov property means; only excerpt 4 names it."
+  - answer_file: "row39.json"
+    question: "how do you calculate the probability of the next day"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [3]
+        hash: "d9fbbce02ea7"
+        label: supported
+        note: 
+        reason: "Excerpt 3 says multiplying the row vector pi by the transition matrix gives the future probabilities."
+      - index: 1
+        cited: [1, 4]
+        hash: "0854c04f7b54"
+        label: supported
+        note: 
+        reason: "Excerpt 4 states the future depends only on the current state."
+  - answer_file: "row40.json"
+    question: "does what happened yesterday matter for tomorrow"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [2]
+        hash: "1b4c72a3ed6c"
+        label: supported
+        note: 
+        reason: "Excerpt 2 states the future depends only on the current state, so the 'No' follows."
+      - index: 1
+        cited: [2, 4]
+        hash: "c67d0aadae0b"
+        label: supported
+        note: 
+        reason: "Excerpts 2 and 4 say to predict the fourth day you only need the third."
+  - answer_file: "row41.json"
+    question: "What is supervised learning?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [4]
+        hash: "35fa07763717"
+        label: supported
+        note: 
+        reason: "Excerpt 4 defines supervised learning with independent features and a dependent target."
+      - index: 1
+        cited: [1, 4]
+        hash: "21c11de43cea"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 4 say the algorithm trains on data with known output labels."
+      - index: 2
+        cited: [2, 5]
+        hash: "20a9bf49c5a7"
+        label: supported
+        note: 
+        reason: "Excerpts 2 and 5 say supervised algorithms find a function mapping one variable to the other."
+      - index: 3
+        cited: [2, 3]
+        hash: "c06ecdf73210"
+        label: supported
+        note: 
+        reason: "Excerpt 3 says there are two subcategories starting with regression; excerpt 2 continues with classification."
+  - answer_file: "row42.json"
+    question: "How does a model get trained on data where every example comes with the correct answer?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "b9c2690399f2"
+        label: supported
+        note: 
+        reason: "The excerpts call training on data with known outputs supervised learning."
+      - index: 1
+        cited: [1, 2]
+        hash: "641ab5b642a4"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 describe a labelled training set used to predict outputs for new data."
+  - answer_file: "row43.json"
+    question: "What is linear regression?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "a44226bdb5fe"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 introduce linear regression as finding a linear relationship between input and output."
+      - index: 1
+        cited: [1]
+        hash: "54c35f99f091"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states it minimizes the sum of squared distances to the line."
+      - index: 2
+        cited: [1]
+        hash: "a9ebbe97df26"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states this minimizes average distance and so prediction errors."
+      - index: 3
+        cited: [1, 3]
+        hash: "495340fc6c0e"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 3 state the model can be extended to multi-dimensional data."
+  - answer_file: "row44.json"
+    question: "What are neural networks?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.5-flash-lite"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [4]
+        hash: "735fdfb6e6ef"
+        label: supported
+        note: 
+        reason: "Excerpt 4 says neural networks design features automatically without human guidance."
+      - index: 1
+        cited: [4]
+        hash: "3cd63cb863e1"
+        label: supported
+        note: 
+        reason: "Excerpt 4 says this is done by adding layers between input and output."
+      - index: 2
+        cited: [3]
+        hash: "cd050059f4c9"
+        label: supported
+        note: 
+        reason: "Excerpt 3 names the simplest form as a single layer perceptron."
+  - answer_file: "row45.json"
+    question: "what are the different categories of machine learning"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.5-flash-lite"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "7349984c562f"
+        label: supported
+        note: 
+        reason: "Excerpt 1 lists supervised, unsupervised and reinforcement learning."
+  - answer_file: "row46.json"
+    question: "why do we need a confusion matrix in the first place?"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 5]
+        hash: "3b2587177541"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 5 say error measures give total error but not individual errors."
+      - index: 1
+        cited: [1]
+        hash: "cea9c7d75ddf"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says accuracy misleads under class imbalance."
+      - index: 2
+        cited: [2, 3]
+        hash: "a5a4eaf6ec50"
+        label: supported
+        note: 
+        reason: "Excerpt 2 says it helps visualize outcomes; excerpt 3 says it helps validate results."
+      - index: 3
+        cited: [2]
+        hash: "e12ed7ec292f"
+        label: supported
+        note: 
+        reason: "Excerpt 2 says it identifies per-class correct predictions and errors."
+  - answer_file: "row47.json"
+    question: "what is sklearn?"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.5-flash-lite"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "fea69d66fd0f"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 say the scikit framework is denoted sklearn and list its uses."
+  - answer_file: "row48.json"
+    question: "what the hell is knn?"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 3]
+        hash: "9320c0ff599b"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 3 say KNN stands for K nearest neighbors."
+      - index: 1
+        cited: [1, 3]
+        hash: "3fd6903ba929"
+        label: supported
+        note: 
+        reason: "Excerpt 1 calls it a simple supervised algorithm mostly for classification."
+      - index: 2
+        cited: [1, 3, 4]
+        hash: "2041d559912a"
+        label: supported
+        note: 
+        reason: "Excerpts 1, 3 and 4 state classification by similarity of features."
+  - answer_file: "row49.json"
+    question: "when do we know knn is to be used"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.5-flash-lite"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "60c1f48366cb"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says use KNN when data is labelled, noise free and small."
+  - answer_file: "row50.json"
+    question: "what is the distance formula used in the algorithm"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.6-flash"
+    run: "earlier"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "9fec1a9310d7"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the Euclidean distance formula."
+  - answer_file: "row56.json"
+    question: "What did the speaker learn from the person who climbed Everest?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "680a3ddebfa3"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the don't-look-up advice and the death zone reason; the because link is the speaker's."
+      - index: 1
+        cited: [1]
+        hash: "30c486912118"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the step, pause, gather, next step advice."
+  - answer_file: "row57.json"
+    question: "how to be consistent"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "cf0a5892b75a"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the answer; the answer declines."
+  - answer_file: "row58.json"
+    question: "What should I do the moment I notice I've got distracted?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "99b8301279b9"
+        label: supported
+        note: 
+        reason: "Excerpt 2 gives correcting after the reflex with one immediate action; excerpts 1 and 2 say keep it small."
+  - answer_file: "row59.json"
+    question: "What is the second habit talked about in this video?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [2]
+        hash: "fda229d01a76"
+        label: supported
+        note: 
+        reason: "Excerpt 2 names the second attention habit as controlling your input."
+  - answer_file: "row60.json"
+    question: "What is the first energy habit talked about?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "e961272c7cb4"
+        label: supported
+        note: 
+        reason: "Excerpt 1 names quantize the action as the first energy habit."
+  - answer_file: "row61.json"
+    question: "what is the markov property"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "9522e82f2d93"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says the future state depends only on the current state."
+      - index: 1
+        cited: [1]
+        hash: "dd89ae63a4f7"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the mathematical form with step n and n+1."
+  - answer_file: "row62.json"
+    question: "what does the restaurant example show"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 3]
+        hash: "2917fc860dc3"
+        label: supported
+        note: 
+        reason: "Excerpts 3 and 1 describe the restaurant serving one of three items chosen by the day before."
+      - index: 1
+        cited: [1]
+        hash: "cf709399eaf8"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says tomorrow can be predicted from today with the 60 percent example."
+      - index: 2
+        cited: [1, 2]
+        hash: "d45802c3061d"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 describe transitions and the current-state-only property."
+  - answer_file: "row63.json"
+    question: "how do you calculate the probability of the next day"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [2, 4]
+        hash: "a97f3fc21624"
+        label: supported
+        note: 
+        reason: "Excerpts 2 and 4 say tomorrow depends only on today."
+      - index: 1
+        cited: [3]
+        hash: "5681433b1990"
+        label: supported
+        note: 
+        reason: "Excerpt 3 says multiplying pi by the transition matrix gives future probabilities."
+  - answer_file: "row64.json"
+    question: "does what happened yesterday matter for tomorrow"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [2]
+        hash: "f31405fcf64a"
+        label: supported
+        note: 
+        reason: "Excerpt 2 says the future depends only on the current state."
+  - answer_file: "row65.json"
+    question: "What is supervised learning?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [4]
+        hash: "c41643e82e06"
+        label: supported
+        note: 
+        reason: "Excerpt 4 defines supervised learning with features and a target."
+      - index: 1
+        cited: [1, 4]
+        hash: "e501b79e6742"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 4 describe training on known labels."
+      - index: 2
+        cited: [2]
+        hash: "619415df659f"
+        label: supported
+        note: 
+        reason: "Excerpt 2 says the algorithms find a mapping function between variables."
+  - answer_file: "row66.json"
+    question: "How does a model get trained on data where every example comes with the correct answer?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "044b8b50f500"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 state supervised learning with a labelled training set."
+  - answer_file: "row67.json"
+    question: "What is linear regression?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "69f8fe744a00"
+        label: supported
+        note: 
+        reason: "Excerpts present linear regression as mapping input to output."
+      - index: 1
+        cited: [1]
+        hash: "ebb903e25a83"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states it fits a linear equation in its simplest form."
+      - index: 2
+        cited: [1]
+        hash: "645b13c3157d"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states minimizing the sum of squared distances."
+  - answer_file: "row68.json"
+    question: "What are neural networks?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [4]
+        hash: "3dcdaad5cf65"
+        label: supported
+        note: 
+        reason: "Excerpt 4 states neural networks design features automatically by adding layers."
+  - answer_file: "row69.json"
+    question: "what are the different categories of machine learning"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "7349984c562f"
+        label: supported
+        note: 
+        reason: "Excerpt 1 names supervised, unsupervised and reinforcement learning."
+  - answer_file: "row70.json"
+    question: "why do we need a confusion matrix in the first place?"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 5]
+        hash: "e1d44f4dc0bd"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 5 state error measures give total error only."
+      - index: 1
+        cited: [1, 2]
+        hash: "c3040d6c4455"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 state accuracy misleads under imbalance and the matrix shows per-class errors."
+  - answer_file: "row71.json"
+    question: "what is sklearn?"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "3b0f82766458"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 say the scikit framework is denoted sklearn and list its uses."
+  - answer_file: "row72.json"
+    question: "what the hell is knn?"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 3]
+        hash: "9320c0ff599b"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 3 state KNN stands for K nearest neighbors."
+      - index: 1
+        cited: [1]
+        hash: "6749cd4997c6"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states it is a simple supervised algorithm mostly for classification."
+      - index: 2
+        cited: [3, 4]
+        hash: "f1005e5c3a5b"
+        label: supported
+        note: 
+        reason: "Excerpts 3 and 4 state KNN is based on feature similarity."
+      - index: 3
+        cited: [1]
+        hash: "7cc412c433d9"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states it stores all cases and classifies by similarity."
+  - answer_file: "row73.json"
+    question: "when do we know knn is to be used"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "1cd73b8c846a"
+        label: supported
+        note: 
+        reason: "Excerpt 1 lists labelled, noise-free and small data as the conditions."
+  - answer_file: "row74.json"
+    question: "what is the distance formula used in the algorithm"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "9e833f271114"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the Euclidean distance formula."
+  - answer_file: "row75.json"
+    question: "How many days does it take for a new habit to become automatic?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "c47786e4f2af"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the answer; declines to answer."
+  - answer_file: "row76.json"
+    question: "Why did the online retailer's founder have top managers open their gatherings by going through a prose document without talking, rather than watching a slide show?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "1edc3db95a7e"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the founder's reason: slides hide sloppy thinking, prose links each thought."
+  - answer_file: "row77.json"
+    question: "What is a hidden Markov model and how does it differ from an ordinary Markov chain?"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "62e0138f1b5c"
+        label: unsupported
+        note: 
+        reason: "Uncited statement of absence; no answer about hidden Markov models."
+  - answer_file: "row78.json"
+    question: "What is the stationary distribution, or equilibrium state, that the random walk simulation converges to?"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [3]
+        hash: "609581bf734d"
+        label: supported
+        note: 
+        reason: "Excerpt 3 gives the stationary state values for the three foods."
+  - answer_file: "row79.json"
+    question: "Which literary work did Markov analyse, counting vowels and consonants, to show his chains in action?"
+    video_id: "o-jdJxXL_W4"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "c47786e4f2af"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the answer."
+  - answer_file: "row80.json"
+    question: "When someone repeatedly pulls coloured stones out of a jar, putting each one back, what happens to the observed proportion as the number of tries grows?"
+    video_id: "o-jdJxXL_W4"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "1e9513f071b3"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 say the observed ratio converges on the actual ratio as trials grow."
+  - answer_file: "row81.json"
+    question: "How does a hidden Markov model work, where the true states are unobserved and only emitted signals can be seen?"
+    video_id: "KZeIEiBrT_w"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "54dc89f3670d"
+        label: unsupported
+        note: 
+        reason: "Uncited statement of absence."
+  - answer_file: "row82.json"
+    question: "What is the damping factor in PageRank, and what share of the time does the random surfer follow a link versus jump to a random page?"
+    video_id: "KZeIEiBrT_w"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "4f6fbee8701e"
+        label: supported
+        note: 
+        reason: "Excerpt 2 says the damping factor keeps the surfer from getting stuck."
+      - index: 1
+        cited: [1, 2]
+        hash: "2e5454cd55aa"
+        label: supported
+        note: 
+        reason: "Both excerpts give the 85 percent link, 15 percent jump rule."
+  - answer_file: "row83.json"
+    question: "How is the dot product of two vectors calculated and what does it say about the angle between them?"
+    video_id: "fNk_zzaMoSs"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "983ed630b676"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the dot product explanation."
+  - answer_file: "row84.json"
+    question: "If you describe each home on the market by its floor area and its cost, what does each home become, and why is it important which value comes first?"
+    video_id: "fNk_zzaMoSs"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "3d2e41fa3c95"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says each house is a pair of numbers, a two-dimensional vector, footage first and price second."
+      - index: 1
+        cited: [1]
+        hash: "ed976eef8817"
+        label: partly
+        note: 
+        reason: "Excerpt 1 says order matters, but the 'because' link is the model's own inference."
+  - answer_file: "row85.json"
+    question: "How does adding a ridge (L2 regularization) penalty to the least squares objective change the closed-form normal equations solution?"
+    video_id: "cmNIMjPYdgM"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "c47786e4f2af"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the answer."
+  - answer_file: "row86.json"
+    question: "According to the lecturer, why does random reshuffling make SGD converge faster, and how does the coupon collector problem explain it?"
+    video_id: "cmNIMjPYdgM"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "3e882db17c28"
+        label: partly
+        note: 
+        reason: "Excerpt 1 states reshuffling converges faster, but not that the excerpts give no explanation."
+      - index: 1
+        cited: [2]
+        hash: "98a19a9adeb1"
+        label: supported
+        note: 
+        reason: "Excerpt 2 says shuffling relates to a coupon collector phenomenon."
+      - index: 2
+        cited: []
+        hash: "c36834c2fa10"
+        label: unsupported
+        note: 
+        reason: "Uncited claim of absence; excerpt 2 partly contradicts it."
+  - answer_file: "row87.json"
+    question: "How do WordPiece or SentencePiece unigram tokenizers differ from the byte pair encoding approach taught in the course?"
+    video_id: "JuoVZkPBiKk"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "4937d8d5ed04"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts do not cover the question."
+  - answer_file: "row88.json"
+    question: "Why could experiments run on tiny networks give a misleading picture of how the biggest models behave?"
+    video_id: "JuoVZkPBiKk"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "ebd6b02c52bd"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives the MLP share rising with scale, so small and large scale differ."
+      - index: 1
+        cited: [1]
+        hash: "01f04fc4f94a"
+        label: supported
+        note: 
+        reason: "Excerpt 1 describes emergent behaviour appearing only at scale."
+      - index: 2
+        cited: [2]
+        hash: "8750584aa2ff"
+        label: supported
+        note: 
+        reason: "Excerpt 2 says intuitions may not transfer across scales."
+  - answer_file: "row89.json"
+    question: "How does a mixture-of-experts model decide which expert each token gets routed to?"
+    video_id: "lVynu4bo1rY"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "899ceebd543e"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the routing answer."
+  - answer_file: "row90.json"
+    question: "What does the Z loss trick penalise, and why does that keep the output softmax numerically stable?"
+    video_id: "lVynu4bo1rY"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "d0d1a6cb2dd0"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says the Z loss penalises log Z away from zero."
+      - index: 1
+        cited: [1]
+        hash: "c3117ebb4b82"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states log Z near zero keeps the softmax stable."
+  - answer_file: "row91.json"
+    question: "How does negative sampling in word2vec avoid normalizing over the whole vocabulary?"
+    video_id: "DzpHeXVSC5I"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "f556c9684be6"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts do not cover negative sampling."
+  - answer_file: "row92.json"
+    question: "According to the lecturer, what single trait separates our species from its closest primate relatives, which otherwise rival us in mental ability?"
+    video_id: "DzpHeXVSC5I"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "968247d94a01"
+        label: supported
+        note: 
+        reason: "Excerpt 1 names language as the big difference from chimps."
+  - answer_file: "row93.json"
+    question: "How does beam search pick the final translation when decoding with the encoder-decoder LSTM?"
+    video_id: "Ba6Fn1-Jsfw"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "81ee669c1f35"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the beam search answer."
+  - answer_file: "row94.json"
+    question: "What does gradient clipping do when the norm of the gradient is too large, and what threshold values are typical?"
+    video_id: "Ba6Fn1-Jsfw"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "e4c75c50716d"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says a too-large gradient norm is scaled down and a smaller update applied."
+      - index: 1
+        cited: [1]
+        hash: "7106c9c69533"
+        label: supported
+        note: 
+        reason: "Excerpt 1 gives 5, 10 or 20 as the usual limit."
+  - answer_file: "row95.json"
+    question: "How does byte pair encoding decide which character sequences to merge when it builds its subword vocabulary?"
+    video_id: "Ub3GoFaUcds"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "f634c9c4117c"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the answer."
+  - answer_file: "row96.json"
+    question: "Why can simply counting the fraction of right guesses give a false picture of a model when nearly every example falls into one group?"
+    video_id: "Ub3GoFaUcds"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 3]
+        hash: "41e9adbe7b64"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 3 say accuracy misleads with imbalanced classes."
+  - answer_file: "row97.json"
+    question: "How many days does Huberman say the body clock needs to adjust for each time zone crossed after a long-haul flight?"
+    video_id: "PbXjK-F-5so"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "afd35278f2aa"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the answer."
+  - answer_file: "row98.json"
+    question: "Which zeitgebers does Huberman say you should stack to shift your circadian clock and become an early riser?"
+    video_id: "PbXjK-F-5so"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "38c4d84ed5fe"
+        label: partly
+        note: 
+        reason: "Excerpt 1 supports morning bright light, but says corrective lenses are fine, contradicting the claim they should not be worn."
+      - index: 1
+        cited: [1]
+        hash: "95a5d8089743"
+        label: supported
+        note: 
+        reason: "Excerpt 1 names exercise or movement as the second zeitgeber to stack."
+      - index: 2
+        cited: [1, 5]
+        hash: "3a48f5a9f358"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 5 add caffeine as a further zeitgeber."
+      - index: 3
+        cited: [3, 4]
+        hash: "8c2b57b9eff9"
+        label: supported
+        note: 
+        reason: "Excerpts 3 and 4 list social interaction among the morning things to stack."
+  - answer_file: "row99.json"
+    question: "How should the value of k be chosen in k-nearest neighbours, and which distance measure is used?"
+    video_id: "ukzFI9rgwfU"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "23cab3f4e49a"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack information on choosing k."
+  - answer_file: "row100.json"
+    question: "Why can a ride-hailing app charge more for the same journey at busy moments or during storms?"
+    video_id: "ukzFI9rgwfU"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "bcf87fa9238c"
+        label: supported
+        note: 
+        reason: "Excerpt 1 describes surge pricing from demand, cars, weather and rush hour."
+  - answer_file: "row101.json"
+    question: "What is reinforcement learning, and how does an agent learn from rewards?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "5f9c77d84cfd"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack information on reinforcement learning."
+  - answer_file: "row102.json"
+    question: "In a support vector machine, what are the support vectors, and why does knowing only them make the algorithm memory efficient?"
+    video_id: "E0Hmnixke2g"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "27a6db258bd7"
+        label: supported
+        note: 
+        reason: "Excerpt 1 defines support vectors as the points on the margin edge."
+      - index: 1
+        cited: [1]
+        hash: "9c225ea6f323"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says they alone classify new points, linked to memory efficiency."
+  - answer_file: "row103.json"
+    question: "What is the difference between convolutional and recurrent neural networks, and when should each be used?"
+    video_id: "9dFhZFUkzuQ"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "c47786e4f2af"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the answer."
+  - answer_file: "row104.json"
+    question: "How did the opening demo add hues to a greyscale snapshot of people at the seaside?"
+    video_id: "9dFhZFUkzuQ"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "5858b525a9d9"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 say the network has already seen many web pictures and grouped them."
+      - index: 1
+        cited: [1, 2]
+        hash: "9c89c65f489b"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 say it matches pieces to similar photos and colours them."
+  - answer_file: "row105.json"
+    question: "How does gradient descent update the slope and intercept step by step, and what learning rate is used?"
+    video_id: "NUXdtN1W1FE"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "a1e95dff70ed"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the excerpts lack the update steps and learning rate."
+  - answer_file: "row106.json"
+    question: "How does the speaker avoid the dummy variable trap after one hot encoding the state column?"
+    video_id: "NUXdtN1W1FE"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 5]
+        hash: "3c26c54700ce"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 5 give the slicing that removes the extra encoded column."
+  - answer_file: "row107.json"
+    question: "How does the video use an ROC curve or the AUC to choose between the two classifiers?"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "a49a0bb01a6f"
+        label: unsupported
+        note: 
+        reason: "Uncited statement of absence about ROC and AUC."
+  - answer_file: "row108.json"
+    question: "Why does the presenter insist on partitioning the dataset prior to rescaling the features?"
+    video_id: "prWyZhcktn4"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "2d82a317feeb"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says split before scaling so the scaler is fit on training data only."
+  - answer_file: "row109.json"
+    question: "How does pruning a decision tree work, and how does the Gini index compare with entropy as a split criterion?"
+    video_id: "RmajweUFKvM"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "30502d1c15d6"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that pruning and Gini are not covered."
+  - answer_file: "row110.json"
+    question: "What max depth and minimum samples per leaf were set on the clf_entropy decision tree classifier, and what do they mean?"
+    video_id: "RmajweUFKvM"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "1c0377a55f2d"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states max depth three, three layers."
+      - index: 1
+        cited: [1]
+        hash: "9ea3cfe0a744"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states minimum samples per leaf five and the speaker's reading of it."
+  - answer_file: "row111.json"
+    question: "How does the video plot the error rate against K to find the elbow point for the diabetes classifier?"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: true
+    segments:
+      - index: 0
+        cited: []
+        hash: "ca7e088793ab"
+        label: unsupported
+        note: 
+        reason: "Uncited statement that the elbow plot is not in the excerpts."
+  - answer_file: "row112.json"
+    question: "What does the presenter substitute for patient readings that were never collected, and why?"
+    video_id: "4HKqjENq9OU"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 3]
+        hash: "6d692985ed55"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 3 say missing values are replaced with the column mean."
+      - index: 1
+        cited: [1, 3]
+        hash: "869d9f1ba3d6"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 3 give the reason: the remaining values stay usable."
+  - answer_file: "row113.json"
+    question: "What are the ultradian cycles that Nathaniel Kleitman described, and how long does one wave of alertness last?"
+    video_id: "LXaFHI_2Hus"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1, 2]
+        hash: "06c8f8868d96"
+        label: supported
+        note: 
+        reason: "Excerpts 1 and 2 credit Kleitman and describe waves of alertness."
+      - index: 1
+        cited: [1]
+        hash: "edcdc4439076"
+        label: supported
+        note: 
+        reason: "Excerpt 1 states each wave lasts 80 to 120 minutes."
+  - answer_file: "row114.json"
+    question: "In the picture, what does each directed link from one menu option to another stand for, and what does a link that loops back to the same option mean?"
+    video_id: "i3AkTO9HLXo"
+    model: "gemini-3.5-flash-lite"
+    run: "this"
+    refused: false
+    segments:
+      - index: 0
+        cited: [1]
+        hash: "cae6c2a9da9e"
+        label: supported
+        note: 
+        reason: "Excerpt 1 says each arrow runs from current to future state and is a transition."
+      - index: 1
+        cited: [1]
+        hash: "00bf960236b5"
+        label: supported
+        note: 
+        reason: "Excerpt 1 shows the self-pointing arrow as the same item again."
