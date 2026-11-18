@@ -12,3 +12,6 @@ evaluation/answers/
 tests/local_sample_paste.txt
 # Real copied transcripts (both samples), kept on this machine only. The repo is public.
 tests/local_sample_paste*.txt
+# Final report sources and output hold personal details; kept on this machine only.
+report_src/
+report_out/
