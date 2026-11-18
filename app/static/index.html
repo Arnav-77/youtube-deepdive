@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>YouTube Deep-Dive</title>
+<!-- An empty inline icon: the browser does not ask the server for /favicon.ico. -->
+<link rel="icon" href="data:,">
 <style>
   /* Inline on purpose: one file, no build step, no outside stylesheet or font.
      Colours are tokens here; dark mode swaps the tokens, not the rules. */
@@ -107,7 +109,7 @@
   .chosen code { word-break: break-all; }
 
   label { display: block; font-weight: 600; margin-bottom: 6px; }
-  textarea {
+  textarea, input[type="text"] {
     display: block;
     width: 100%;
     min-height: 5rem;
@@ -118,7 +120,9 @@
     border: 1px solid var(--border);
     border-radius: 8px;
   }
-  textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input[type="text"] { min-height: 2.6rem; }
+  #add-transcript { min-height: 8rem; }
+  textarea:focus-visible, input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   .row {
     display: flex;
@@ -154,6 +158,11 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+
+  .slow-note { margin: 8px 0 0; }
+  .field + .field { margin-top: 12px; }
+  .help { margin: 0 0 12px; padding-left: 1.3em; font-size: 0.9rem; color: var(--muted); }
+  .add-card { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 
   /* The answer: paragraphs and bullet lists built from the Markdown subset. */
   .answer-text { margin-top: 16px; }
@@ -309,6 +318,7 @@
         <button type="submit" id="ask-button">Ask</button>
         <span id="status" class="muted" role="status"></span>
       </div>
+      <p id="slow-note" class="muted slow-note" hidden></p>
     </form>
     <div id="answer" aria-live="polite"></div>
   </section>
@@ -322,6 +332,29 @@
       <span id="page-label" class="muted"></span>
       <button type="button" id="next">Next</button>
     </nav>
+
+    <div class="add-card" id="add-panel">
+      <h2 id="add-heading">Add a video</h2>
+      <ol class="help">
+        <li>On the YouTube video, click "...more" under the video, then "Show transcript".</li>
+        <li>Drag-select all of the transcript text, from the first time to the last line.</li>
+        <li>Press Ctrl+C, then click in the box below and press Ctrl+V.</li>
+      </ol>
+      <form id="add-form" aria-labelledby="add-heading">
+        <div class="field">
+          <label for="add-url">YouTube link</label>
+          <input type="text" id="add-url" maxlength="200" autocomplete="off" required>
+        </div>
+        <div class="field">
+          <label for="add-transcript">Transcript</label>
+          <textarea id="add-transcript" required></textarea>
+        </div>
+        <div class="row">
+          <button type="submit" id="add-button">Add video</button>
+          <span id="add-status" class="muted" role="status"></span>
+        </div>
+      </form>
+    </div>
   </section>
 </main>
 
@@ -331,6 +364,10 @@
 // YouTube's own thumbnail host. The visitor's browser loads it, not the server.
 const thumbnailUrl = (id) =>
   `https://img.youtube.com/vi/${encodeURIComponent(id)}/mqdefault.jpg`;
+
+// After this many seconds of waiting for an answer, the page explains the wait.
+const SLOW_AFTER_S = 15;
+const SLOW_NOTE = "The main model is busy. Switching to the backup can take up to a minute.";
 
 // Matches an excerpt number in the answer text, e.g. the "[2]" in "...[2]".
 const CITATION_PATTERN = /\[(\d+)\]/g;
@@ -354,11 +391,14 @@ function el(tag, attrs, ...children) {
   return node;
 }
 
-// 83.0 -> "1:23". Seconds only, because that is what the server sends.
-function mmss(seconds) {
+// 83.0 -> "1:23", 4480 -> "1:14:40". Seconds only, because that is what the
+// server sends; links are built from the seconds, this is only the label.
+function clock(seconds) {
   const total = Math.floor(seconds);
-  const minutes = Math.floor(total / 60);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
   const secs = String(total % 60).padStart(2, "0");
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${secs}`;
   return `${minutes}:${secs}`;
 }
 
@@ -384,11 +424,11 @@ let videoItems = []; // one <li> per video, in list order
 let page = 0; // zero-based index of the page on show
 
 // The name shown under a thumbnail and above the question. A video with no
-// title shows "Untitled video", never its raw id.
+// title shows "Video <id>", so two untitled videos can still be told apart.
 function nameOf(id) {
   const video = videosById.get(id);
   if (video && video.title) return el("span", { className: "title" }, video.title);
-  return el("span", { className: "title untitled" }, "Untitled video");
+  return el("span", { className: "title untitled" }, `Video ${id}`);
 }
 
 // Shows the chosen video above the question box, so the visitor can see what
@@ -431,17 +471,37 @@ function changePage(delta) {
   showPage();
 }
 
-async function loadVideos() {
+// Selects a video in the list, moves to the page it is on, and shows it above the question box.
+function selectVideo(id) {
+  const index = videoItems.findIndex((item) => item.querySelector("input").value === id);
+  if (index === -1) return false;
+  videoItems[index].querySelector("input").checked = true;
+  page = Math.floor(index / PAGE_SIZE);
+  showChosen(id);
+  return true;
+}
+
+// Loads (or reloads) the list. A reload keeps the video that was picked, or
+// picks `selectId` when one is given, as after adding a video.
+async function loadVideos(selectId) {
   const status = document.getElementById("videos-status");
   const list = document.getElementById("videos");
+  const picked = document.querySelector('input[name="video"]:checked');
+  const keep = selectId || (picked ? picked.value : null);
   try {
     const response = await fetch("/videos");
     if (!response.ok) throw new Error(`The video list failed (${response.status}).`);
     const videos = await response.json();
+    videosById.clear();
+    videoItems = [];
+    list.replaceChildren();
+    page = 0;
     if (videos.length === 0) {
+      status.className = "muted";
       status.textContent = "No videos have been added yet.";
       return;
     }
+    status.className = "muted";
     status.textContent = "";
     for (const video of videos) {
       videosById.set(video.video_id, video);
@@ -450,6 +510,7 @@ async function loadVideos() {
       list.append(item);
     }
     document.getElementById("pager").hidden = false;
+    if (!keep || !selectVideo(keep)) showChosen(null);
     showPage();
   } catch (err) {
     status.className = "error";
@@ -459,7 +520,7 @@ async function loadVideos() {
 
 // The citation button: "▶ 0:51", opening the video at that moment.
 function citationLink(citation) {
-  const time = mmss(citation.start_seconds);
+  const time = clock(citation.start_seconds);
   return el(
     "a",
     {
@@ -576,15 +637,32 @@ async function ask(event) {
     return;
   }
 
-  // Loading state: the button stays disabled until the answer (or an error) arrives.
+  // Waiting state: the button stays disabled until the answer (or an error)
+  // arrives. A seconds counter runs, and after SLOW_AFTER_S seconds a note
+  // explains the wait. The counter is hidden from screen readers so they do
+  // not announce it every second.
   button.disabled = true;
-  button.textContent = "Thinking…";
+  button.textContent = "Answering...";
+  const slowNote = document.getElementById("slow-note");
+  const counter = el("span", { "aria-hidden": "true" }, "0 s");
   status.className = "muted";
   status.replaceChildren(
     el("span", { className: "spinner", "aria-hidden": "true" }),
-    "Thinking… usually 4 to 30 seconds.",
+    "Answering... ",
+    counter,
   );
+  slowNote.hidden = true;
+  slowNote.textContent = "";
   answer.replaceChildren();
+  const started = Date.now();
+  const timer = setInterval(() => {
+    const secs = Math.floor((Date.now() - started) / 1000);
+    counter.textContent = `${secs} s`;
+    if (secs >= SLOW_AFTER_S && slowNote.hidden) {
+      slowNote.textContent = SLOW_NOTE;
+      slowNote.hidden = false;
+    }
+  }, 1000);
 
   try {
     let response;
@@ -606,12 +684,119 @@ async function ask(event) {
     status.className = "error";
     status.textContent = err.message;
   } finally {
+    clearInterval(timer);
+    slowNote.hidden = true;
+    slowNote.textContent = "";
     button.disabled = false;
     button.textContent = "Ask";
   }
 }
 
+// --- Add a video -------------------------------------------------------------
+// Sends the pasted transcript to POST /videos/paste as a visitor: no token.
+// The server stores it and embeds it in the background (202); the page then
+// checks the progress address until the video is ready.
+
+const ADD_POLL_EVERY_MS = 3000;
+const ADD_POLL_FOR_MS = 10 * 60 * 1000;
+
+function pause(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// The server's own words for why it said no. The paste route uses "detail"
+// for malformed input and "message" for the limits and conflicts.
+function serverNote(data) {
+  if (data && typeof data.message === "string") return data.message;
+  if (data && typeof data.detail === "string") return data.detail;
+  return "";
+}
+
+// The refusal in plain words, by status code, with the server's reason after it.
+function addFailure(status, data) {
+  const note = serverNote(data);
+  const tail = note ? ` The server said: ${note}` : "";
+  if (status === 409) return `This video cannot be added again, so nothing was changed.${tail}`;
+  if (status === 422) return `The server did not accept that transcript.${tail}`;
+  if (status === 429) return `The limit for added videos has been reached for now, so nothing was added. Try again later.${tail}`;
+  if (status === 400) return `That does not look like a YouTube link.${tail}`;
+  return `The server returned an error (${status}). Try again in a minute.`;
+}
+
+// Checks the progress address every few seconds until every chunk is embedded.
+async function waitUntilReady(videoId, first, show) {
+  let state = first;
+  const deadline = Date.now() + ADD_POLL_FOR_MS;
+  while (state.status !== "ready") {
+    if (state.status === "incomplete") {
+      throw new Error("Embedding stopped before it finished. Press Add video again with the same text to resume it.");
+    }
+    if (Date.now() > deadline) {
+      throw new Error("Still embedding after 10 minutes. Press Add video again later to check on it.");
+    }
+    show(`Added. Embedding the transcript: ${state.embedded_count} of ${state.chunk_count} parts done.`);
+    await pause(ADD_POLL_EVERY_MS);
+    try {
+      const response = await fetch(`/videos/${encodeURIComponent(videoId)}`);
+      const data = await response.json().catch(() => null);
+      if (response.status === 404) throw new Error("The server lost track of that video. Try adding it again.");
+      if (response.ok && data) state = data;
+    } catch (err) {
+      // A dropped request while the server is busy: keep waiting. Only our own errors stop the wait.
+      if (err.message.startsWith("The server lost")) throw err;
+    }
+  }
+  return state;
+}
+
+async function addVideo(event) {
+  event.preventDefault();
+  const button = document.getElementById("add-button");
+  const status = document.getElementById("add-status");
+  if (button.disabled) return;
+  const urlBox = document.getElementById("add-url");
+  const transcriptBox = document.getElementById("add-transcript");
+  const show = (text, kind) => {
+    status.className = kind || "muted";
+    status.textContent = text;
+  };
+  if (!urlBox.value.trim()) return show("Type the YouTube link first.", "error");
+  if (!transcriptBox.value.trim()) return show("Paste the transcript first.", "error");
+
+  button.disabled = true;
+  button.textContent = "Adding...";
+  show("Sending the transcript...");
+  try {
+    let response;
+    try {
+      response = await fetch("/videos/paste", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: urlBox.value.trim(), transcript: transcriptBox.value }),
+      });
+    } catch {
+      throw new Error("Could not reach the server. It may be waking up; try again in a minute.");
+    }
+    const data = await response.json().catch(() => null);
+    if (response.status !== 200 && response.status !== 202) {
+      throw new Error(addFailure(response.status, data));
+    }
+    const ready = await waitUntilReady(data.video_id, data, show);
+    show("Refreshing the list...");
+    await loadVideos(ready.video_id);
+    urlBox.value = "";
+    transcriptBox.value = "";
+    show("Added and selected. Type your question in the question box.");
+  } catch (err) {
+    show(err.message, "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Add video";
+  }
+}
+
 document.getElementById("ask-form").addEventListener("submit", ask);
+document.getElementById("add-form").addEventListener("submit", addVideo);
 
 // Enter asks the question; Shift+Enter starts a new line. Enter is left alone
 // while an input method is composing text (event.isComposing), so typing in

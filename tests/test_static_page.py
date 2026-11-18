@@ -87,10 +87,12 @@ def test_paging_uses_the_one_videos_response_and_no_server_paging(page_html):
     assert "page=" not in page_html    # likewise: no page number sent to the server
 
 
-def test_title_is_shown_under_the_thumbnail_with_untitled_as_fallback(page_html):
+def test_title_is_shown_under_the_thumbnail_with_the_video_id_as_fallback(page_html):
     assert "video.title" in page_html
-    assert "Untitled video" in page_html
-    # A card never shows the raw id as its name.
+    # No title: "Video <id>", so two untitled videos can be told apart.
+    assert "`Video ${id}`" in page_html
+    assert "Untitled video" not in page_html
+    # The id is a text node in a span, never markup.
     assert 'el("code"' not in page_html
 
 
@@ -200,3 +202,147 @@ def test_the_not_checked_label_is_built_as_a_text_node(page_html):
 
 def test_the_not_checked_label_is_styled_in_plain_css(page_html):
     assert ".unchecked {" in page_html
+
+
+# --- polish: tab icon, times, waiting state, missing titles, add a video ------
+
+
+def _function_source(page_html, signature):
+    """The text of one top-level function in the page's script."""
+    start = page_html.index(signature)
+    return page_html[start: page_html.index("\n}\n", start) + 3]
+
+
+def test_the_tab_icon_is_inline_so_the_browser_never_asks_for_favicon_ico(page_html):
+    head = page_html[: page_html.index("</head>")]
+    assert '<link rel="icon" href="data:,">' in head
+    assert "favicon.ico" not in page_html.replace("<!-- An empty inline icon: the browser does not ask the server for /favicon.ico. -->", "")
+
+
+def test_times_use_hours_from_one_hour_up_and_minutes_below(page_html):
+    clock = _function_source(page_html, "function clock(seconds)")
+    assert "Math.floor(total / 3600)" in clock
+    assert "if (hours > 0)" in clock
+    # h:mm:ss with two-digit minutes and seconds; m:ss otherwise.
+    assert 'return `${hours}:${String(minutes).padStart(2, "0")}:${secs}`;' in clock
+    assert "return `${minutes}:${secs}`;" in clock
+    assert "mmss" not in page_html
+
+
+def test_citation_links_are_built_from_seconds_and_only_the_label_uses_the_clock(page_html):
+    link = _function_source(page_html, "function citationLink(citation)")
+    assert "href: citation.url" in link
+    assert "clock(citation.start_seconds)" in link
+    assert "start_seconds" not in link.replace("clock(citation.start_seconds)", "")
+
+
+def test_asking_disables_the_button_and_says_answering_with_a_seconds_counter(page_html):
+    ask = _function_source(page_html, "async function ask(event)")
+    assert "button.disabled = true;" in ask
+    assert 'button.textContent = "Answering...";' in ask
+    assert '"Answering... "' in ask
+    assert "setInterval(" in ask and "Math.floor((Date.now() - started) / 1000)" in ask
+    assert "} finally {" in ask
+    # The timer is always stopped and the button always comes back.
+    finally_part = ask[ask.index("} finally {"):]
+    assert "clearInterval(timer);" in finally_part
+    assert "button.disabled = false;" in finally_part
+    assert 'button.textContent = "Ask";' in finally_part
+
+
+def test_after_15_seconds_the_page_says_the_main_model_is_busy(page_html):
+    assert "const SLOW_AFTER_S = 15;" in page_html
+    assert ('const SLOW_NOTE = "The main model is busy. Switching to the backup can take up to a minute.";'
+            in page_html)
+    assert "secs >= SLOW_AFTER_S" in page_html
+    assert 'id="slow-note"' in page_html
+
+
+def test_an_error_while_asking_shows_a_plain_message_and_the_button_is_enabled_again(page_html):
+    ask = _function_source(page_html, "async function ask(event)")
+    catch_part = ask[ask.index("} catch (err) {"): ask.index("} finally {")]
+    assert 'status.className = "error";' in catch_part
+    assert "status.textContent = err.message;" in catch_part
+    assert "Could not reach the server" in ask
+
+
+def test_a_video_without_a_title_is_named_video_and_its_id(page_html):
+    name = _function_source(page_html, "function nameOf(id)")
+    assert "`Video ${id}`" in name
+    assert "if (video && video.title)" in name
+
+
+def test_the_add_panel_has_a_link_field_a_transcript_box_and_an_add_button(page_html):
+    assert '<form id="add-form"' in page_html
+    assert 'id="add-url"' in page_html and "YouTube link" in page_html
+    assert '<textarea id="add-transcript"' in page_html
+    assert '<button type="submit" id="add-button">Add video</button>' in page_html
+    assert 'document.getElementById("add-form").addEventListener("submit", addVideo);' in page_html
+
+
+def test_the_add_panel_gives_three_lines_on_copying_a_transcript_from_youtube(page_html):
+    help_block = page_html[page_html.index('<ol class="help">'): page_html.index("</ol>", page_html.index('<ol class="help">'))]
+    assert help_block.count("<li>") == 3
+    assert "...more" in help_block and "Show transcript" in help_block
+    assert "Drag-select" in help_block
+    assert "Ctrl+C" in help_block
+
+
+def test_adding_posts_to_the_paste_route_as_a_visitor_with_no_token(page_html):
+    add = _function_source(page_html, "async function addVideo(event)")
+    assert 'fetch("/videos/paste"' in add
+    assert 'method: "POST"' in add
+    assert "JSON.stringify({ url:" in add
+    assert "X-Paste-Token" not in page_html
+    assert "x-paste-token" not in page_html.lower()
+    assert "PASTE_TOKEN" not in page_html
+
+
+def test_each_paste_refusal_is_explained_in_plain_words(page_html):
+    failure = _function_source(page_html, "function addFailure(status, data)")
+    for code in ("409", "422", "429"):
+        assert f"status === {code}" in failure
+    assert "cannot be added again" in failure
+    assert "did not accept that transcript" in failure
+    assert "limit for added videos" in failure
+    # The server's reason comes after the plain sentence, from either field it uses.
+    assert "data.message" in page_html and "data.detail" in page_html
+
+
+def test_a_202_is_polled_until_ready_and_then_the_list_is_refreshed_and_the_video_selected(page_html):
+    add = _function_source(page_html, "async function addVideo(event)")
+    assert "response.status !== 200 && response.status !== 202" in add
+    assert "await waitUntilReady(data.video_id, data, show)" in add
+    assert "await loadVideos(ready.video_id);" in add
+    wait = _function_source(page_html, "async function waitUntilReady(videoId, first, show)")
+    assert "`/videos/${encodeURIComponent(videoId)}`" in wait
+    assert 'while (state.status !== "ready")' in wait
+    assert 'state.status === "incomplete"' in wait   # stopped job: say so, do not poll forever
+    assert "ADD_POLL_FOR_MS" in wait                  # and never wait forever
+    select = _function_source(page_html, "function selectVideo(id)")
+    assert "checked = true" in select and "showChosen(id)" in select
+
+
+def test_the_add_button_is_disabled_while_sending_and_enabled_again_after(page_html):
+    add = _function_source(page_html, "async function addVideo(event)")
+    assert "if (button.disabled) return;" in add
+    assert 'button.textContent = "Adding...";' in add
+    finally_part = add[add.index("} finally {"):]
+    assert "button.disabled = false;" in finally_part
+    assert 'button.textContent = "Add video";' in finally_part
+
+
+def test_the_add_panel_only_writes_text_never_markup(page_html):
+    script = page_html[page_html.index("// --- Add a video"):]
+    assert ".textContent = text;" in script
+    assert not re.search(r"\.\s*(inner|outer)HTML\b", script)
+    assert "insertAdjacentHTML" not in script
+    # The server's words reach the page only through textContent.
+    assert "show(err.message" in script
+
+
+def test_the_list_can_be_reloaded_without_a_second_kind_of_request(page_html):
+    # One fetch of /videos, reused for the first load and the refresh after an add.
+    assert page_html.count('fetch("/videos")') == 1
+    assert "async function loadVideos(selectId)" in page_html
+    assert "videosById.clear();" in page_html and "list.replaceChildren();" in page_html
