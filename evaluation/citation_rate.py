@@ -30,7 +30,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from evaluation.log_rows import is_answered, read_csv
+from evaluation.log_rows import is_answered, read_csv, source_of
 
 TARGET = 0.90
 
@@ -94,12 +94,17 @@ def main() -> None:
     parser.add_argument("csv")
     parser.add_argument("--labels", action="append", default=[],
                         help="labels file with refused values; repeat for several (first wins)")
+    parser.add_argument("--source", default="all", choices=["all", "production", "laptop"],
+                        help="only rows from this source (default all). For a production export use "
+                             "production, so laptop rows in the same database are left out")
     parser.add_argument("--json", default=None, help="also write the numbers to this JSON file")
     parser.add_argument("--run-prefix", default="local-",
                         help="commit_sha prefix of this run's rows (default local-)")
     args = parser.parse_args()
 
     rows = read_csv(Path(args.csv))
+    if args.source != "all":
+        rows = [r for r in rows if source_of(r.get("commit_sha")) == args.source]
     refusals = refusal_labels([Path(p) for p in args.labels])
     this_run = [r for r in rows if str(r.get("commit_sha") or "").startswith(args.run_prefix)]
     earlier = [r for r in rows if not str(r.get("commit_sha") or "").startswith(args.run_prefix)]

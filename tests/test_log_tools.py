@@ -148,3 +148,9 @@ def test_refusal_labels_reads_row_ids_and_skips_blank_ones(tmp_path):
                  "  - {answer_file: row7.json, refused: true}\n"
                  "  - {answer_file: row8.json, refused: }\n", encoding="utf-8")
     assert refusal_labels([f]) == {7: (True, "labels.yaml")}
+
+
+def test_citation_rate_source_filter_leaves_laptop_rows_out():
+    from evaluation.log_rows import source_of
+    rows = [{"commit_sha": "abc123"}, {"commit_sha": "local"}, {"commit_sha": "local-x"}, {"commit_sha": ""}]
+    assert [r["commit_sha"] for r in rows if source_of(r["commit_sha"]) == "production"] == ["abc123"]

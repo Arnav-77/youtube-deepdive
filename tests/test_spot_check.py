@@ -42,3 +42,10 @@ def test_compare_refuses_a_stale_hash():
     spot = {"segments": [{"item": 1, "answer_file": "row3.json", "index": 0,
                           "hash": "other", "label": "supported"}]}
     assert "stale" in compare(spot, LABELS)["problems"][0]
+
+
+def test_summary_text_states_the_sample_size():
+    from evaluation.spot_check_agreement import summary_text
+    assert summary_text([]) == "no segments labelled yet"
+    text = summary_text([("supported", "supported"), ("partly", "supported")])
+    assert "2 of the 20" in text and "1 of 2 (50%)" in text and "rough check" in text

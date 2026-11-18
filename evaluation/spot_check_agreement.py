@@ -1,7 +1,8 @@
 """Agreement between Arnav's spot-check labels and the AI judge's labels.
 
-    python evaluation/spot_check_agreement.py
+    python evaluation/spot_check_agreement.py [--json evaluation/results/spot_check.json]
 
+With --json it also writes the one-sentence result the report builder reads.
 Reads evaluation/spot_check_labels.yaml (Arnav, by hand) and
 evaluation/grounding_labels_agent.yaml (AI judge). For every spot-check item
 Arnav has labelled, compares the two labels on the same segment, after
@@ -65,6 +66,17 @@ def table_lines(pairs: list) -> list[str]:
     return lines
 
 
+def summary_text(pairs: list) -> str:
+    """One sentence for the report: agreement with its sample size. Pure."""
+    n = len(pairs)
+    if not n:
+        return "no segments labelled yet"
+    agree = sum(1 for a, b in pairs if a == b)
+    return (f"I labelled {n} of the 20 segments by hand and agreed with the AI judge on "
+            f"{agree} of {n} ({100 * agree / n:.0f}%). With {n} segments this is a rough check, "
+            "not a reliable agreement measure.")
+
+
 def main() -> None:
     spot = yaml.safe_load(SPOT_LABELS.read_text(encoding="utf-8")) or {}
     agent = yaml.safe_load(AGENT_LABELS.read_text(encoding="utf-8")) or {}
@@ -77,6 +89,11 @@ def main() -> None:
     print(f"not yet labelled: {result['blank']}")
     for line in table_lines(result["pairs"]):
         print(line)
+    if "--json" in sys.argv:
+        import json
+        out = Path(sys.argv[sys.argv.index("--json") + 1])
+        out.write_text(json.dumps({"text": summary_text(result["pairs"]), "pairs": len(result["pairs"]),
+                                   "blank": result["blank"]}, indent=1) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
