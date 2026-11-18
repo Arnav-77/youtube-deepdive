@@ -2,7 +2,7 @@
 # Command: python evaluation/run_eval.py --golden evaluation/golden_set_agent.yaml --method M --set S [--cache-only]
 # Commit: d620884   Run: 2026-11-18T09:20Z   Database: dev branch
 # The first dense runs embed the 57 new questions (no --cache-only); every later run is --cache-only.
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=dense  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set_agent.yaml
 
@@ -72,7 +72,7 @@ method=dense  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set_
   [speaker_words] offset median +8s   |offset| median 19s   late: 10/18   worst late +72s
 
   query embeddings: 0 cached, 54 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=lexical  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set_agent.yaml
 
@@ -142,7 +142,7 @@ method=lexical  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_se
   [speaker_words] offset median -5s   |offset| median 19s   late: 8/18   worst late +23s
 
   query embeddings: 0 cached, 0 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=hybrid  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set_agent.yaml
 
@@ -212,7 +212,7 @@ method=hybrid  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set
   [speaker_words] offset median -12s   |offset| median 21s   late: 7/18   worst late +23s
 
   query embeddings: 54 cached, 0 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=dense  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set_agent.yaml
 
@@ -231,7 +231,7 @@ method=dense  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set_agent
   [speaker_words] offset median -23s   |offset| median 23s   late: 0/1   worst late +0s
 
   query embeddings: 0 cached, 3 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=lexical  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set_agent.yaml
 
@@ -249,7 +249,7 @@ method=lexical  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set_age
   [speaker_words] offset median -23s   |offset| median 23s   late: 0/1   worst late +0s
 
   query embeddings: 0 cached, 0 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=hybrid  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set_agent.yaml
 

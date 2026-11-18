@@ -1,4 +1,4 @@
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 DeepDive evaluation summary (evaluation/run_all.py). No API calls.
 chunking_run fixed_1000_200, k=5. Human = Arnav's labels; AI = written or labelled by Claude Code, never mixed into human numbers.
 

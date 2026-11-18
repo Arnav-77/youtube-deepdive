@@ -1,7 +1,7 @@
 # Retrieval evaluation, human-labelled set (evaluation/golden_set.yaml)
 # Command: python evaluation/run_eval.py --golden evaluation/golden_set.yaml --method M --set S --cache-only
 # Commit: d0bddf0   Run: 2026-11-18T09:04Z   Database: dev branch
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=dense  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set.yaml
 
@@ -24,7 +24,7 @@ method=dense  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set.
   offset median -7s   |offset| median 15s   late: 5/14   worst late +95s
 
   query embeddings: 14 cached, 0 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=lexical  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set.yaml
 
@@ -47,7 +47,7 @@ method=lexical  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_se
   offset median -40s   |offset| median 40s   late: 1/12   worst late +33s
 
   query embeddings: 0 cached, 0 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=hybrid  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set.yaml
 
@@ -70,7 +70,7 @@ method=hybrid  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set
   offset median -13s   |offset| median 22s   late: 3/14   worst late +33s
 
   query embeddings: 14 cached, 0 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=dense  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set.yaml
 
@@ -84,7 +84,7 @@ method=dense  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set.yaml
   offset median +1s   |offset| median 20s   late: 3/5   worst late +80s
 
   query embeddings: 5 cached, 0 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=lexical  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set.yaml
 
@@ -98,7 +98,7 @@ method=lexical  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set.yam
   offset median -6s   |offset| median 45s   late: 2/4   worst late +57s
 
   query embeddings: 0 cached, 0 API requests
-database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+database host: ep-jolly-credit-<id redacted>.neon.tech (dev branch)
 
 method=hybrid  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set.yaml
 
