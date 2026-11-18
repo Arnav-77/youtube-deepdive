@@ -1,0 +1,32 @@
+{
+ "laptop": {
+  "n": 59,
+  "per_day": {
+   "2026-11-18": 59
+  },
+  "outcomes": {
+   "answered": 59
+  },
+  "servable": 59,
+  "failed": 0,
+  "failed_by_type": {},
+  "answered": 59,
+  "latency_n": 59,
+  "p50": 6944.0,
+  "p95": 36722.59999999996,
+  "mean": 12679.033898305084,
+  "max": 123326.0,
+  "cost_per_day": {
+   "2026-11-18": 0.031026
+  },
+  "priced_per_day": {
+   "2026-11-18": 59
+  },
+  "fallback": 59,
+  "fallback_n": 59,
+  "retrieval": {
+   "dense": 59
+  },
+  "no_citation": 20
+ }
+}

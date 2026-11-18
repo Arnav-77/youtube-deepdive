@@ -1,0 +1,13 @@
+file: evaluation/exports/dev_logs.csv   rows: 112   id >= 56
+
+== source laptop: 59 requests ==
+  requests per day: 2026-11-18 59
+  outcomes: answered 59
+  failure rate: 0% (0/59) of requests that were not user errors
+  latency of answered requests (n=59): P50 6944 ms, P95 36723 ms, mean 12679 ms, max 123326 ms
+  list-price cost per day (USD, not billed): 2026-11-18 0.0310 (59 priced)
+  fallback rate (backup model answered): 100% (59/59) of answered requests that record both models
+  retrieval method (requests that reached a video): dense 100% (59/59)
+  answered with no citation (often a refusal): 20 of 59
+
+Laptop latency includes about 280 ms per database round trip from Delhi to Ohio; production latency does not. Report them separately.

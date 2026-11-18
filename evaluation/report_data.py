@@ -147,8 +147,8 @@ def main():
               f"- failure rate {pct(lap['failed'], lap['servable'])}; failed by type {lap['failed_by_type']}",
               f"- fallback (backup model answered) {pct(lap['fallback'], lap['fallback_n'])}",
               f"- retrieval method {lap['retrieval']}; cost per day (list price) {lap['cost_per_day']}"]
-    o += ["- Budget used: `evaluation/answers/finish_budget.json` (gitignored); per request: "
-          "`evaluation/answers/finish_runs.jsonl` (gitignored).", ""]
+    o += ["- Budget used: `evaluation/answers/finish_state/finish_budget.json` (gitignored); per request: "
+          "`evaluation/answers/finish_state/finish_runs.jsonl` (gitignored).", ""]
 
     o += ["## 6. Tests", ""]
     if tc:
@@ -169,7 +169,7 @@ def main():
           "| CS229 visitor paste: 22 chunks, citations at 74:40 | NOTES; 22 chunks matches the dev database (jGwO_UgTS7I) |",
           "| Phase 01 deployment reps (docker run, Compose with Caddy, Render) | NOTES only |",
           "| Laptop: ASUS TUF Gaming F16 (FX607VUR), Core 5 210H, 16 GB, Windows 11 Home, WSL2 | finish_plan.md section 3 (Arnav) |",
-          "| Hung model call about 5 minutes, LiteLLM default 6000 s | this run: evaluation/answers/finish_budget.json hung_note; litellm/constants.py |",
+          "| Hung model call about 5 minutes, LiteLLM default 6000 s | this run: evaluation/answers/finish_state/finish_budget.json hung_note; litellm/constants.py |",
           ""]
     OUT.write_text("\n".join(o) + "\n", encoding="utf-8")
     print(f"wrote {OUT}")

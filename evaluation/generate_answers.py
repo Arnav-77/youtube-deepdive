@@ -10,14 +10,14 @@ this process. Gemini is never called any other way.
 After each request the new query_logs row is copied to
 evaluation/answers/rowN.json with save_answer.build_answer_file (gitignored:
 excerpts are transcript text), and one line is appended to
-evaluation/answers/finish_runs.jsonl: label, question, status, row id,
+evaluation/answers/finish_state/finish_runs.jsonl: label, question, status, row id,
 server latency, wall time, model, retrieval method.
 
 TIMEOUT: --llm-timeout (default 120 s) sets LiteLLM's REQUEST_TIMEOUT for this
 process only. This is the one way these requests differ from production,
 where LiteLLM's default of 6000 s applies.
 
-BUDGET (finish plan, hard rule 6), kept in evaluation/answers/finish_budget.json
+BUDGET (finish plan, hard rule 6), kept in evaluation/answers/finish_state/finish_budget.json
 so a restart cannot overspend:
   - at most 120 answer-generation calls in total. One /ask is charged 1 call,
     or 2 when the logged model differs from the requested one or generation
@@ -43,8 +43,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evaluation.answer_files import ANSWERS_DIR
 
-BUDGET_PATH = ANSWERS_DIR / "finish_budget.json"
-RUNS_PATH = ANSWERS_DIR / "finish_runs.jsonl"
+BUDGET_PATH = ANSWERS_DIR / "finish_state" / "finish_budget.json"
+RUNS_PATH = ANSWERS_DIR / "finish_state" / "finish_runs.jsonl"
 MAX_CALLS = 120
 MAX_EMBEDS = 200
 PAUSE_S = 8

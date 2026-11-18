@@ -21,14 +21,24 @@ One entry per phase: what was done, commit ids, numbers produced, and anything s
 - Dev set (5 questions, 1 video): dense 5/5, MRR 0.750; lexical 4/5, MRR 0.640; hybrid 5/5, MRR 0.717.
 - Every predicted number matched Arnav's 14 to 18 Oct notes exactly. No differences to record.
 
-### 2b. AI-written questions (in progress)
+### 2b. AI-written questions (done)
 
 - Seven subagents read the transcripts with `show_transcript.py` and wrote 3 questions per video (speaker_words, paraphrase, negative) for all 18 reported videos and the unlabelled parts of LXaFHI_2Hus (dev): 19 videos, 57 questions, merged into `evaluation/golden_set_agent.yaml` with `author: claude-code`.
 - `evaluation/agent_set.py` validates the file: 0 problems.
 - A word-run scan found no question or note sharing more than 6 consecutive words with its transcript; the four 6-word runs (common phrases) were reworded in the notes.
-- Two independent verifier subagents are checking every positive span and every negative question.
+- Two independent verifier subagents checked the set: 38 of 38 positive spans hold their answer (one span widened by 5 s); 18 of 19 negatives are clean; the 19th (4HKqjENq9OU, a yes/no question answerable "no") was replaced. Five wording flags are listed in REVIEW.md.
+- Commit d620884 (set, prediction); results a8e4360: `evaluation/results/retrieval_agent.txt`. Every prediction held. Reported set: speaker_words dense 18/18 (MRR 1.000), lexical 18/18 (0.963); paraphrase dense 18/18 (0.972), lexical 7/18 (0.292), hybrid 15/18 (0.604); every method returned 5 chunks for all negatives. 57 embedding API requests.
 
 ### 2c. Answers: budget change
 
 - Gemini's primary model (gemini-3.6-flash) returned 503 "high demand" on every request in run 1; the backup (gemini-3.5-flash-lite) answered each one. The log shows exactly one failed primary attempt per request, so each request costs 2 calls, and 120 calls is about 60 requests, not the 95 planned.
 - Decision: one run of the 19 human questions, then as many AI-written questions as the budget allows, negatives first in each round. The planned second human run (spread check) is skipped for budget. For the spread, Claude also labels the earlier saved answers to the same 19 questions (rows 24 and 33 to 50, from 18 Oct and 10 Nov) at no API cost.
+
+- Human run 1 (label human-r1): 19 of 19 returned 200, all answered by the backup model, dense retrieval, rows 56 to 74, 38 calls.
+- AI-set run (label agent-r1): negatives first in each round. At 09:29 UTC one gemini-3.6-flash call hung for about 5 minutes. LiteLLM's default timeout is 6000 s and `generate()` sets none. The process was stopped (charged 2 calls, no log row written), the runner gained `--llm-timeout` (default 120 s, sets LiteLLM's `REQUEST_TIMEOUT` for its own process only; commit 4610223), and the run resumed. The bug is recorded as a strict xfail test (c225305), not fixed: app/ is frozen.
+
+### 2d. AI judge (in progress)
+
+- Subagents label each saved answer blind (no access to either labels file or to the gold spans) with `label_answer.py --show` and the rubric in docs/grounding.md. `evaluation/agent_labels.py` checks every segment index and computes each hash from the saved answer.
+- Labelled so far: rows 24, 26, 33 to 50 (earlier run), 56 to 74 (human-r1), 75 to 101 (agent-r1).
+- Batches 5 onward were given one extra sentence on refusals ("an answer that says the excerpts do not cover the question and only adds loosely related material is still refused: true"), after the first AI-set answers showed that case. Batches 1 to 4 (human questions) had no such answer.
