@@ -1,0 +1,7 @@
+# add_video_live.py on production, 18 Nov 2026, link route (visitor, no credentials). Output only; no transcript text.
+# Command: python evaluation/add_video_live.py "https://www.youtube.com/watch?v=3cvGhO3FTtc"
+3cvGhO3FTtc: 97 caption snippets, about 4.7 minutes, 5 chunks of about 1,000 characters
+POST /videos/paste: HTTP 202, status=embedding, detail='Embedding runs in the background. Check progress at progress_url. If the server restarts, send this same request again: it embeds only the missing chunks.'
+   10s: ready, embedded 5 of 5
+listed in GET /videos: title=None, added_by=visitor, checked=False, duration_seconds=284
+ask about it: https://youtube-deepdive.onrender.com/ui/  (video id 3cvGhO3FTtc)

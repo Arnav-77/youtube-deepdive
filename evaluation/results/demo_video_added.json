@@ -1,0 +1,21 @@
+{
+ "video_id": "3cvGhO3FTtc",
+ "snippets": 97,
+ "minutes": 4.7,
+ "chunks": 5,
+ "seconds": 10,
+ "checked": false,
+ "added_by": "visitor",
+ "title": null,
+ "question": "What does DNS do when I type a website name into my browser?",
+ "ask_http": 200,
+ "ask_status": "answered",
+ "ask_model": "gemini-3.5-flash-lite",
+ "ask_latency_ms": 3990,
+ "ask_citations": 3,
+ "ask_citation_links": [
+  "https://youtu.be/3cvGhO3FTtc?t=135",
+  "https://youtu.be/3cvGhO3FTtc?t=75",
+  "https://youtu.be/3cvGhO3FTtc?t=1"
+ ]
+}

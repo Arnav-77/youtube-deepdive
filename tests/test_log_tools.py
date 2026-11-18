@@ -154,3 +154,32 @@ def test_citation_rate_source_filter_leaves_laptop_rows_out():
     from evaluation.log_rows import source_of
     rows = [{"commit_sha": "abc123"}, {"commit_sha": "local"}, {"commit_sha": "local-x"}, {"commit_sha": ""}]
     assert [r["commit_sha"] for r in rows if source_of(r["commit_sha"]) == "production"] == ["abc123"]
+
+
+# --- smoke_test.judge -------------------------------------------------------
+
+from evaluation.smoke_test import judge
+
+
+def _raw(**over):
+    raw = {"health": {"status": "ok", "commit": "65b7047"},
+           "videos": {"count": 23, "has_added_by": True, "has_checked": True},
+           "ask": {"http": 200, "status": "answered", "model": "gemini-3.6-flash", "latency_ms": 900,
+                   "citations": [{"number": 1, "start_seconds": 51.72, "url": "https://youtu.be/x?t=51"}]},
+           "paste": {"http": 422, "detail": "no timestamps found"},
+           "videos_after": {"count": 23, "has_bad_paste_video": False}}
+    raw.update(over)
+    return raw
+
+
+def test_smoke_judge_passes_a_healthy_server():
+    checks = judge(_raw(), "65b7047" + "0" * 33)
+    assert all(c["ok"] for c in checks), [c for c in checks if not c["ok"]]
+
+
+def test_smoke_judge_fails_each_broken_thing():
+    assert not judge(_raw(), "aaaaaaa" + "0" * 33)[1]["ok"]                                   # old commit
+    assert not judge(_raw(ask={"http": 200, "status": "answered", "citations": [
+        {"number": 1, "start_seconds": 0.0, "url": "https://youtu.be/x?t=0"}]}), None)[3]["ok"]  # wrong time
+    assert not judge(_raw(paste={"http": 200}), None)[4]["ok"]                                  # paste accepted
+    assert not judge(_raw(videos_after={"count": 24, "has_bad_paste_video": True}), None)[5]["ok"]

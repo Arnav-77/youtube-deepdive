@@ -1,0 +1,18 @@
+file: evaluation/exports/dev_logs.csv   rows: 20   labels: none
+A valid citation is a number between 1 and the number of excerpts sent; code turns it into a ?t= timestamp link.
+
+== this run (commit_sha starting 'local-') ==
+  answered responses: 0
+  with at least one valid citation: n/a (0 of 0)   target 90%: not met
+  refusals (labelled refused: true): 0 of 0 labelled answers; refusals that still cite: 0
+  excluding labelled refusals: n/a (0 of 0)
+  answers with no refusal label: 0 (of these, 0 cite nothing: an upper bound on unlabelled refusals)
+  answers citing an excerpt never sent: 0 of 0
+
+== all earlier rows ==
+  answered responses: 13
+  with at least one valid citation: 84.6% (11/13)   target 90%: not met
+  refusals (labelled refused: true): 0 of 0 labelled answers; refusals that still cite: 0
+  excluding labelled refusals: 84.6% (11/13)
+  answers with no refusal label: 13 (of these, 2 cite nothing: an upper bound on unlabelled refusals)
+  answers citing an excerpt never sent: 0 of 13

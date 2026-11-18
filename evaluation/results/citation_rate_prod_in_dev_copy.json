@@ -1,0 +1,26 @@
+{
+ "this_run": {
+  "answered": 0,
+  "cited": 0,
+  "labelled": 0,
+  "refused": 0,
+  "refused_cited": 0,
+  "not_refused": 0,
+  "not_refused_cited": 0,
+  "unlabelled": 0,
+  "unlabelled_no_citation": 0,
+  "invalid_any": 0
+ },
+ "earlier": {
+  "answered": 13,
+  "cited": 11,
+  "labelled": 0,
+  "refused": 0,
+  "refused_cited": 0,
+  "not_refused": 13,
+  "not_refused_cited": 11,
+  "unlabelled": 13,
+  "unlabelled_no_citation": 2,
+  "invalid_any": 0
+ }
+}

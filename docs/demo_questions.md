@@ -14,6 +14,8 @@ Latency is the laptop's (dev branch, Delhi to Ohio), not production's.
 | 6 | KZeIEiBrT_w (the strange math that predicts almost anything) | What is the damping factor in PageRank, and what share of the time does the random surfer follow a link versus jump to a random page? | 82 | 8.7 s |
 | 7 | LXaFHI_2Hus (habits talk) | What are the ultradian cycles that Nathaniel Kleitman described, and how long does one wave of alertness last? | 113 | 3.6 s |
 
+Added on 18 Nov for the live demo (not part of the evaluation): video 3cvGhO3FTtc ("Master DNS in 5 MINS!"), added to the live site by `evaluation/add_video_live.py` and labelled "not checked". Question: "What does DNS do when I type a website name into my browser?" It was answered on production with 3 citations (`?t=135`, `?t=75`, `?t=1`) by gemini-3.5-flash-lite in 4.0 s (`evaluation/results/demo_video_added.json`).
+
 Notes:
 
 - Questions 1 to 5 are Arnav's hand-labelled golden questions. Questions 6 and 7 are from the AI-written set.

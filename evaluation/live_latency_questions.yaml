@@ -1,0 +1,59 @@
+# Questions for evaluation/live_latency.py: 25 questions, used only to time /ask.
+# The first 19 are the human-labelled golden questions (golden_set.yaml, same
+# order); the last 6 are the first speaker_words questions of the AI-written set
+# (golden_set_agent.yaml) on six videos the human set does not cover. No spans,
+# no transcript text: latency does not depend on labels.
+videos:
+- video_id: LXaFHI_2Hus
+  questions:
+  - q: What did the speaker learn from the person who climbed Everest?
+  - q: how to be consistent
+  - q: What should I do the moment I notice I've got distracted?
+  - q: What is the second habit talked about in this video?
+  - q: What is the first energy habit talked about?
+- video_id: i3AkTO9HLXo
+  questions:
+  - q: what is the markov property
+  - q: what does the restaurant example show
+  - q: how do you calculate the probability of the next day
+  - q: does what happened yesterday matter for tomorrow
+- video_id: E0Hmnixke2g
+  questions:
+  - q: What is supervised learning?
+  - q: How does a model get trained on data where every example comes with the correct
+      answer?
+  - q: What is linear regression?
+  - q: What are neural networks?
+- video_id: prWyZhcktn4
+  questions:
+  - q: what are the different categories of machine learning
+  - q: why do we need a confusion matrix in the first place?
+  - q: what is sklearn?
+- video_id: 4HKqjENq9OU
+  questions:
+  - q: what the hell is knn?
+  - q: when do we know knn is to be used
+  - q: what is the distance formula used in the algorithm
+- video_id: o-jdJxXL_W4
+  questions:
+  - q: What did Pavel Nekrasov claim about independence being necessary for the law
+      of large numbers, and why?
+- video_id: KZeIEiBrT_w
+  questions:
+  - q: What is the damping factor in PageRank, and what share of the time does the
+      random surfer follow a link versus jump to a random page?
+- video_id: fNk_zzaMoSs
+  questions:
+  - q: How does the tip-to-tail method define the sum of two vectors?
+- video_id: cmNIMjPYdgM
+  questions:
+  - q: According to the lecturer, why does random reshuffling make SGD converge faster,
+      and how does the coupon collector problem explain it?
+- video_id: JuoVZkPBiKk
+  questions:
+  - q: Under the Chinchilla compute-optimal scaling laws, what is the rule of thumb
+      for how many training tokens to use per parameter, for example for a 70B model?
+- video_id: lVynu4bo1rY
+  questions:
+  - q: What does the Z loss trick penalise, and why does that keep the output softmax
+      numerically stable?

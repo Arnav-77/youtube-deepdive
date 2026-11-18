@@ -6,7 +6,7 @@ It is a retrieval-augmented generation (RAG) system over YouTube transcripts: th
 
 B.Tech minor project, USICT, GGSIPU (Arnav Soni, 2026).
 
-- **Live page:** https://youtube-deepdive.onrender.com/ui/ (the `/ui/` page is live only after the November deploy; before that, use https://youtube-deepdive.onrender.com/docs)
+- **Live page:** https://youtube-deepdive.onrender.com/ui/ (deployed 18 Nov 2026, commit `65b7047` or later)
 - **API docs:** https://youtube-deepdive.onrender.com/docs
 
 The server runs on Render's free tier and sleeps after 15 idle minutes, so the first request after a quiet period takes about 40 seconds.
@@ -72,11 +72,11 @@ From the final evaluation on 18 Nov 2026. Every number is in `evaluation/REPORT_
 | 19 human questions | 31/31 | 18/18 answered | 1 false refusal ("how to be consistent") |
 | 40 AI-written questions | 33/35 | 18/20 answered | 19 of 19 negatives refused correctly, 0 missed, 1 false refusal |
 
-**Grounding, Arnav's labels:** 1 scored answer so far (3/3 segments supported). Agreement with the AI judge exists on only 2 answers, far too few to trust; a 20-segment spot check is prepared (`evaluation/spot_check_labels.yaml`).
+**Grounding, Arnav's labels:** 1 scored answer so far (3/3 segments supported). Agreement with the AI judge exists on only 2 answers, far too few to trust. A 20-segment hand check was prepared (`evaluation/spot_check_labels.yaml`) but not done, so the grounding figures are an AI judge's assessment.
 
 **Citation rate** (proposal: at least 90% of responses cite timestamps; `evaluation/results/citation_rate.txt`): earlier answers on the dev branch 40/43 (93.0%). In this run 39/59 (66.1%) overall, because 19 questions were built to be unanswerable and a correct refusal cites nothing; 38/38 (100%) of the answers that were not refusals.
 
-Not measured yet: production latency (P50, P95) and the production citation rate. The scripts are written (`evaluation/export_logs.py`, `evaluation/live_latency.py`, `evaluation/log_stats.py`); laptop numbers are never used in their place.
+**Production latency** (`evaluation/results/live_latency_production.txt`: 25 questions sent one at a time, 8 seconds apart, to the deployed server on 18 Nov 2026; all 25 answered; server latency P50 1.8 s, P95 46.2 s, mean 8.5 s, max 48.3 s). Three requests took 46 to 48 s, which fits the 45-second timeout cutting off a slow main model and the backup answering in a few seconds (the per-request model was not recorded by this script, so that is an inference); one took 27 s and the other 21 took under 7 s. n = 25, so the P95 is near the slowest requests. The full production request log was not exported for the report.
 
 ## Running it locally
 
