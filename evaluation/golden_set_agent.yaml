@@ -1,0 +1,399 @@
+# AI-WRITTEN benchmark questions. NOT Arnav's labels.
+#
+# Every question and gold span in this file was written by Claude Code
+# (claude-opus-5-5) on 18 Nov 2026, during the unattended finish run
+# (report_src/finish_plan.md, step 2b), by subagents that read each transcript
+# with evaluation/show_transcript.py. Every number computed from this file is
+# AI-labelled and is reported apart from the human-labelled numbers from
+# evaluation/golden_set.yaml. Arnav has not checked these spans.
+#
+# Same schema as golden_set.yaml, plus:
+#   author   claude-code, on every question
+#   type     speaker_words  uses the speaker's own key terms
+#            paraphrase     avoids the speaker's key words for that passage
+#            negative       sounds related but is not answered; spans: []
+# No transcript text: notes describe the passage in Claude's own words.
+# Videos keep their set (dev or reported) and duration_s from golden_set.yaml.
+# Checked by: python evaluation/agent_set.py
+
+videos:
+  - video_id: LXaFHI_2Hus
+    set: dev
+    duration_s: 1030
+    category: educational
+    questions:
+      - q: "What are the ultradian cycles that Nathaniel Kleitman described, and how long does one wave of alertness last?"
+        type: speaker_words
+        author: claude-code
+        spans: [[693, 732]]
+        note: "own words: third energy habit: daytime waves of alertness of about 80 to 120 minutes, called ultradian cycles (11:33 to 12:09). Outside the labelled 480-689 range."
+      - q: "Why did the online retailer's founder have top managers open their gatherings by going through a prose document without talking, rather than watching a slide show?"
+        type: paraphrase
+        author: claude-code
+        spans: [[406, 447]]
+        note: "own words: write-to-think habit: Amazon senior meetings opened with silent memo reading because decks can hide sloppy thinking (6:46 to 7:22). grep found none of gather, manager, prose, slide, retail, founder."
+      - q: "How many days does it take for a new habit to become automatic?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: day, week, month, 21, 66, automatic, form a habit, repetition, streak. No time to form a habit given. Not answered."
+  - video_id: i3AkTO9HLXo
+    set: reported
+    duration_s: 565
+    category: jargon
+    questions:
+      - q: "What is the stationary distribution, or equilibrium state, that the random walk simulation converges to?"
+        type: speaker_words
+        author: claude-code
+        spans: [[255, 302]]
+        note: "own words: after the 10-step walk, a long simulation shows the state probabilities settle; named the stationary distribution (about 4:15 to 5:00). Outside the labelled ranges."
+      - q: "In the picture, what does each directed link from one menu option to another stand for, and what does a link that loops back to the same option mean?"
+        type: paraphrase
+        author: claude-code
+        spans: [[64, 100]]
+        note: "own words: weighted arrows go from current to future state; a self-pointing arrow means the same food again; each arrow is a transition (1:04 to 1:40). grep found none of picture, link, menu, option, loop, stand."
+      - q: "What is a hidden Markov model and how does it differ from an ordinary Markov chain?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: hidden, absorbing, periodic, irreducible, ergodic, emission, observation. No matches; basic chains only. Not answered."
+  - video_id: o-jdJxXL_W4
+    set: reported
+    duration_s: 433
+    category: jargon
+    questions:
+      - q: "What did Pavel Nekrasov claim about independence being necessary for the law of large numbers, and why?"
+        type: speaker_words
+        author: claude-code
+        spans: [[210, 266]]
+        note: "own words: Nekrasov, a theologian defending free will, claimed that the law of large numbers requires independent events (3:30 to 4:26)."
+      - q: "When someone repeatedly pulls coloured stones out of a jar, putting each one back, what happens to the observed proportion as the number of tries grows?"
+        type: paraphrase
+        author: claude-code
+        spans: [[82, 136]]
+        note: "own words: Bernoulli's experiment: the observed share approaches the true share as trials increase; weak law of large numbers (1:22 to 2:16). grep found none of stone, jar, colour, proportion, pick."
+      - q: "Which literary work did Markov analyse, counting vowels and consonants, to show his chains in action?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: vowel, consonant, poem, poet, pushkin, onegin, text, letter, novel. letter only as a letter Markov wrote; no text analysis described. Not answered."
+  - video_id: KZeIEiBrT_w
+    set: reported
+    duration_s: 1944
+    category: jargon
+    questions:
+      - q: "What is the damping factor in PageRank, and what share of the time does the random surfer follow a link versus jump to a random page?"
+        type: speaker_words
+        author: claude-code
+        spans: [[1323, 1352]]
+        note: "own words: 22:03 to 22:32: a surfer can be trapped cycling among a few pages; fix is to follow a link 85% of the time and jump randomly about 15%; named the damping factor."
+      - q: "What ratio of offspring particles per particle decided whether the weapon would blow up or fizzle out?"
+        type: paraphrase
+        author: claude-code
+        spans: [[875, 930]]
+        note: "own words: 14:35 to 15:30: the ENIAC simulation tracks the average neutrons produced per neutron (multiplication factor k); below, equal to and above one explained. grep found none of ratio, offspring, particle, decide, weapon, blow, fizzle."
+      - q: "How does a hidden Markov model work, where the true states are unobserved and only emitted signals can be seen?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: hidden, observ, unobserved, emission, Viterbi, Baum, Metropolis. hidden only about keyword stuffing; HMMs never explained. Not answered."
+  - video_id: fNk_zzaMoSs
+    set: reported
+    duration_s: 591
+    category: educational
+    questions:
+      - q: "How does the tip-to-tail method define the sum of two vectors?"
+        type: speaker_words
+        author: claude-code
+        spans: [[288, 316]]
+        note: "own words: second vector moved so its tail sits at the first's tip; the sum runs from the first tail to the second tip (4:48 to 5:16)."
+      - q: "If you describe each home on the market by its floor area and its cost, what does each home become, and why is it important which value comes first?"
+        type: paraphrase
+        author: claude-code
+        spans: [[51, 85]]
+        note: "own words: the computer science view treats a vector as an ordered list; the housing example makes each house a 2-D vector where order counts (0:51 to 1:24). grep found none of home, floor, area, cost, market."
+      - q: "How is the dot product of two vectors calculated and what does it say about the angle between them?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: dot, inner, angle, cosine, projection, magnitude, norm. Only addition and scalar multiplication covered. Not answered."
+  - video_id: cmNIMjPYdgM
+    set: reported
+    duration_s: 4685
+    category: jargon
+    questions:
+      - q: "According to the lecturer, why does random reshuffling make SGD converge faster, and how does the coupon collector problem explain it?"
+        type: speaker_words
+        author: claude-code
+        spans: [[2865, 2958]]
+        note: "own words: from about 47:47 a shuffled pass converges faster than sampling with replacement; the coupon collector idea explains the waiting time for the last unseen example. Ends near 49:17."
+      - q: "Why does the instructor multiply the squared-error cost by 0.5, and would scaling it by some other number change which weights come out best?"
+        type: paraphrase
+        author: claude-code
+        spans: [[1678, 1713]]
+        note: "own words: in a student Q&A at 28:01 to 28:31 the factor is a convention; a constant multiple does not change the minimizer, and it cancels in the derivative. Question avoids the speaker's words half and constant."
+      - q: "How does adding a ridge (L2 regularization) penalty to the least squares objective change the closed-form normal equations solution?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: regulari, ridge, lasso, overfit, penalt, lambda, shrink, weight decay, validation. One penalty hit, about the plain squared loss. Normal equations section never adds a penalty term. Not answered."
+  - video_id: JuoVZkPBiKk
+    set: reported
+    duration_s: 4757
+    category: jargon
+    questions:
+      - q: "Under the Chinchilla compute-optimal scaling laws, what is the rule of thumb for how many training tokens to use per parameter, for example for a 70B model?"
+        type: speaker_words
+        author: claude-code
+        spans: [[2973, 3068]]
+        note: "own words: 49:33 to 51:07: Kaplan and Chinchilla scaling laws; about 20 tokens per parameter, roughly 1.4 trillion tokens for 70B; caveat about inference cost."
+      - q: "Why could experiments run on tiny networks give a misleading picture of how the biggest models behave?"
+        type: paraphrase
+        author: claude-code
+        spans: [[333, 428]]
+        note: "own words: 5:33 to 7:07: class-sized models may not represent frontier ones; feed-forward compute share grows with size, and some abilities appear only at scale. grep finds none of tiny, network, misleading, biggest, picture, behave."
+      - q: "How do WordPiece or SentencePiece unigram tokenizers differ from the byte pair encoding approach taught in the course?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: wordpiece, sentencepiece, unigram, tiktoken, byte-level, bpe, byte pair. All hits are about BPE itself; no other subword method named. Not answered."
+  - video_id: lVynu4bo1rY
+    set: reported
+    duration_s: 5350
+    category: jargon
+    questions:
+      - q: "What does the Z loss trick penalise, and why does that keep the output softmax numerically stable?"
+        type: speaker_words
+        author: claude-code
+        spans: [[4080, 4170]]
+        note: "own words: 68:04 to 69:25: the log normalizer of the output softmax can blow up; a squared log Z penalty pushes it toward zero; named the Z loss trick and used by later open models."
+      - q: "When a language model reads its training text only once, so memorising it is not a worry, why would penalising big parameter values still produce a stronger finished model?"
+        type: paraphrase
+        author: claude-code
+        spans: [[3685, 3800]]
+        note: "own words: 61:26 to 63:19: weight decay stays popular though single-pass training does not overfit; it interacts with the optimizer and learning rate decay to reach a better minimum. grep finds none of the question's content words in the passage."
+      - q: "How does a mixture-of-experts model decide which expert each token gets routed to?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: expert, MoE, rout, load balanc, top-k, sparse. Mixtures of experts only named at 04:10 and deferred to the next lecture; no routing explained. Not answered."
+  - video_id: DzpHeXVSC5I
+    set: reported
+    duration_s: 4813
+    category: jargon
+    questions:
+      - q: "Why are one hot vectors a poor way to represent words such as motel and hotel?"
+        type: speaker_words
+        author: claude-code
+        spans: [[1915, 2045]]
+        note: "own words: one-hot vectors indexed by vocabulary position carry no similarity, since different words are orthogonal (dot product zero); query expansion mentioned as a workaround. Inside 31:55 to 34:05."
+      - q: "According to the lecturer, what single trait separates our species from its closest primate relatives, which otherwise rival us in mental ability?"
+        type: paraphrase
+        author: claude-code
+        spans: [[722, 797]]
+        note: "own words: compares people with chimps and bonobos (tools, planning, short-term recall); the big difference is language. grep of 12:02 to 13:20 for closest, primate, species, trait, separat, rival, mental, abilit, relative found none."
+      - q: "How does negative sampling in word2vec avoid normalizing over the whole vocabulary?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: negative sampl, cbow, bag of, glove, sampl, hierarch, approximat, noise, sigmoid, logistic. Full softmax only; negative sampling never covered. Not answered."
+  - video_id: Ba6Fn1-Jsfw
+    set: reported
+    duration_s: 4624
+    category: jargon
+    questions:
+      - q: "What does gradient clipping do when the norm of the gradient is too large, and what threshold values are typical?"
+        type: speaker_words
+        author: claude-code
+        spans: [[1139, 1200]]
+        note: "own words: clipping as a fix for exploding gradients: compute the norm, if over a threshold (around 5, 10 or 20) scale it down. 18:59 to 19:59."
+      - q: "Which wartime task done by the earliest electronic machines led people to imagine that converting text from one tongue to another was a comparable puzzle?"
+        type: paraphrase
+        author: claude-code
+        spans: [[3364, 3445]]
+        note: "own words: early computers built in WWII for artillery tables and code breaking; in the Cold War translation was seen as code breaking. grep of 55:44 to 57:25 for wartime, electronic, machines, tongue, puzzle found none."
+      - q: "How does beam search pick the final translation when decoding with the encoder-decoder LSTM?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: beam, greedy, search, hypothes, candidate, top k, argmax, bleu; zero hits. Only one-word-at-a-time decoding described. Not answered."
+  - video_id: Ub3GoFaUcds
+    set: reported
+    duration_s: 6116
+    category: jargon
+    questions:
+      - q: "What is label smoothing, and how does it change the one-hot target that the Transformer is trained to predict?"
+        type: speaker_words
+        author: claude-code
+        spans: [[5137, 5250]]
+        note: "own words: 85:37 to 87:30: label smoothing softens the one-hot target (true word gets 1 minus epsilon, rest shared), the model is less confident, and the authors saw better BLEU."
+      - q: "Why can simply counting the fraction of right guesses give a false picture of a model when nearly every example falls into one group?"
+        type: paraphrase
+        author: claude-code
+        spans: [[955, 1003]]
+        note: "own words: 15:57 to 16:41: with very lopsided classes a majority-class model looks excellent on accuracy, so precision and recall are needed. grep of the passage finds none of counting, fraction, right, guesses, false, picture, nearly, falls, group."
+      - q: "How does byte pair encoding decide which character sequences to merge when it builds its subword vocabulary?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: byte, pair, BPE, merg, WordPiece, SentencePiece, frequen, most common, build the vocab. Only hits are about paired translation data. Tokenization compared by pros and cons only. Not answered."
+  - video_id: PbXjK-F-5so
+    set: reported
+    duration_s: 12406
+    category: rambling
+    questions:
+      - q: "Which zeitgebers does Huberman say you should stack to shift your circadian clock and become an early riser?"
+        type: speaker_words
+        author: claude-code
+        spans: [[1513, 1662]]
+        note: "own words: from 25:13 he lists the timekeepers in order: morning bright light first, then exercise or movement, caffeine, sometimes early meals, and finally a social rhythm from being around other people (27:29 to 27:40). The span covers all four. The mechanism discussion and the three-day routine come after it."
+      - q: "What tip from a well-known record producer helps someone hold on to what they saw overnight when they first come to, and what should they do instead if that experience was frightening?"
+        type: paraphrase
+        author: claude-code
+        spans: [[4434, 4480]]
+        note: "own words: at 73:54 to 74:39 the guest passes on Rick Rubin's advice. To keep a dream, stay motionless with your eyes shut. To get rid of a nightmare, move your body. He links this to REM paralysis. I grepped the passage: tip, record, producer, hold, overnight and frightening do not appear. Only the very common words mind and sleep do."
+      - q: "How many days does Huberman say the body clock needs to adjust for each time zone crossed after a long-haul flight?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked the whole transcript (12406 s) for: jet, lag, time zone, timezone, zone, per day, hour a day, each day, travel, flight, fly, plane, hotel, abroad, overseas, melatonin, supplement. No jet lag or time zone matches; plane and hotel only about cabin light and windows, plus an ad. Not answered."
+  - video_id: ukzFI9rgwfU
+    set: reported
+    duration_s: 468
+    category: educational
+    questions:
+      - q: "In the cricket data set example, how does unsupervised learning find clusters of batsmen and bowlers without labels?"
+        type: speaker_words
+        author: claude-code
+        spans: [[225, 272]]
+        note: "own words: runs and wickets plotted; two clusters read as batsmen and bowlers without labels (3:45 to 4:31)."
+      - q: "Why can a ride-hailing app charge more for the same journey at busy moments or during storms?"
+        type: paraphrase
+        author: claude-code
+        spans: [[405, 445]]
+        note: "own words: surge pricing sets cab fares from demand, free cars, weather and rush hour (6:45 to 7:24). grep found none of ride, hail, app, charge, journey, busy, storm."
+      - q: "How should the value of k be chosen in k-nearest neighbours, and which distance measure is used?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: neighbour, distance, euclid, odd, choose, value of, tie, vote. KNN only named with a majority vote example; choice of k and distance never given. Not answered."
+  - video_id: E0Hmnixke2g
+    set: reported
+    duration_s: 990
+    category: educational
+    questions:
+      - q: "In a support vector machine, what are the support vectors, and why does knowing only them make the algorithm memory efficient?"
+        type: speaker_words
+        author: claude-code
+        spans: [[400, 425]]
+        note: "own words: SVM section: widest-margin boundary; support vectors are the points on the margin edge; they alone classify new data, which saves memory. 06:40 to 07:05."
+      - q: "If two body measurements of an animal tend to move together, what does the video suggest doing instead of keeping both?"
+        type: paraphrase
+        author: claude-code
+        spans: [[914, 945]]
+        note: "own words: PCA fish example: two strongly correlated size features can be replaced by one combined feature. grep of 15:14 to 15:44 for body, measure, animal, move, together, keep, instead, merge, single, tend found none."
+      - q: "What is reinforcement learning, and how does an agent learn from rewards?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: reinforc, reward, agent, penalt, game, semi, trial. Only hit is trial and error for choosing K in k-means. Video covers supervised and unsupervised only. Not answered."
+  - video_id: 9dFhZFUkzuQ
+    set: reported
+    duration_s: 1676
+    category: educational
+    questions:
+      - q: "What household example does the speaker give of a 'reactive machine' type of AI, and why does it count as one?"
+        type: speaker_words
+        author: claude-code
+        spans: [[1072, 1106]]
+        note: "own words: 17:52 to 18:26: reactive machines form no memories and only respond; the example is a washing machine rebalancing an uneven load."
+      - q: "How did the opening demo add hues to a greyscale snapshot of people at the seaside?"
+        type: paraphrase
+        author: claude-code
+        spans: [[104, 174]]
+        note: "own words: 1:44 to 2:54: a greyscale photo is fed to a neural network trained on many pictures, which recognises objects and fills in colours. grep found none of hue, grey, snapshot, seaside, demo, opening."
+      - q: "What is the difference between convolutional and recurrent neural networks, and when should each be used?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: convol, recurr, CNN, RNN, LSTM, transformer, sequence, activation, ReLU, sigmoid, layer. One generic mention of layers; no architectures compared. Not answered."
+  - video_id: NUXdtN1W1FE
+    set: reported
+    duration_s: 2145
+    category: educational
+    questions:
+      - q: "How does the speaker avoid the dummy variable trap after one hot encoding the state column?"
+        type: speaker_words
+        author: claude-code
+        spans: [[1585, 1627]]
+        note: "own words: 26:25 to 27:07: dummy variable trap introduced; the encoder made an extra column, and one column is dropped by slicing."
+      - q: "In the shaded grid that compares each pair of fields against each other, which kind of outlay moves most closely in step with earnings?"
+        type: paraphrase
+        author: claude-code
+        spans: [[1340, 1420]]
+        note: "own words: 22:20 to 23:40: correlation heatmap; profit correlates most with R&D spend, then marketing, least administration. grep found none of shaded, grid, pair, field, outlay, step, earning."
+      - q: "How does gradient descent update the slope and intercept step by step, and what learning rate is used?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: gradient, descent, learning rate, iterat, ridge, lasso, regulariz. iterate only about computing sums in a loop; fit is closed form plus sklearn. Not answered."
+  - video_id: prWyZhcktn4
+    set: reported
+    duration_s: 1487
+    category: educational
+    questions:
+      - q: "How does the video define precision and recall in terms of true positives?"
+        type: speaker_words
+        author: claude-code
+        spans: [[605, 650]]
+        note: "own words: metrics section defines precision as true positives over predicted positives, recall as true positives over actual positives (10:06 to 10:47). Outside the human-labelled spans."
+      - q: "Why does the presenter insist on partitioning the dataset prior to rescaling the features?"
+        type: paraphrase
+        author: claude-code
+        spans: [[1045, 1085]]
+        note: "own words: in the demo the split is done before the scaler so it is fitted on training rows only. grep of 17:25 to 18:05 for partition, prior, rescal, feature, insist, dataset, presenter, normaliz, divid: no hits."
+      - q: "How does the video use an ROC curve or the AUC to choose between the two classifiers?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: roc, auc, curve, threshold, specificity, sensitivity, area under, receiver, probab; hits only inside unrelated words. Models compared by accuracy, precision, recall and F1 only. Not answered."
+  - video_id: RmajweUFKvM
+    set: reported
+    duration_s: 1959
+    category: educational
+    questions:
+      - q: "What max depth and minimum samples per leaf were set on the clf_entropy decision tree classifier, and what do they mean?"
+        type: speaker_words
+        author: claude-code
+        spans: [[1595, 1645]]
+        note: "own words: 26:35 to 27:25: classifier settings (entropy, random state 100, max depth 3, min samples per leaf 5) explained."
+      - q: "What are the downsides of the flowchart-style classifier, such as latching onto random quirks or becoming shaky after tiny tweaks to its inputs?"
+        type: paraphrase
+        author: claude-code
+        spans: [[519, 555]]
+        note: "own words: 8:39 to 9:13: disadvantages listed: overfitting to noise, high variance, instability with small data changes. grep found none of downside, flowchart, latch, quirk, shaky, tiny, tweak."
+      - q: "How does pruning a decision tree work, and how does the Gini index compare with entropy as a split criterion?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "checked whole transcript for: prun, gini, impurit, cut back, trim. None found; only entropy and information gain explained. Not answered."
+  - video_id: 4HKqjENq9OU
+    set: reported
+    duration_s: 1642
+    category: educational
+    questions:
+      - q: "What square-root-of-n rule does the video give for picking K, and why should K be made odd?"
+        type: speaker_words
+        author: claude-code
+        spans: [[305, 345], [1364, 1400]]
+        note: "own words: 05:10 to 05:43 gives the square-root heuristic and odd K to avoid ties; the demo at 22:44 to 23:19 applies it again (K = 11). Answer repeated, either span holds it. Outside the human-labelled ranges."
+      - q: "What does the presenter substitute for patient readings that were never collected, and why?"
+        type: paraphrase
+        author: claude-code
+        spans: [[928, 1070]]
+        note: "own words: in the demo, zeros in some health columns are treated as missing and replaced with the column mean so the rest of each row stays usable. grep of 15:28 to 17:49 for substitut, patient, reading, collect, never, presenter: no hits."
+      - q: "How does the video plot the error rate against K to find the elbow point for the diabetes classifier?"
+        type: negative
+        author: claude-code
+        spans: []
+        note: "Replaced after independent verification: the first version (a yes/no question about cross-validation) could be answered no from the square-root rule, so it was not a clean negative. The verifier searched the whole transcript for elbow, error rate, tune, different values, several, range, best k, optimal: none occur. K comes only from the square-root rule. Not answered."
