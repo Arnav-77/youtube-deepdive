@@ -1,0 +1,270 @@
+# Retrieval evaluation, AI-WRITTEN question set (evaluation/golden_set_agent.yaml). AI-labelled: questions and spans by Claude Code, not by Arnav.
+# Command: python evaluation/run_eval.py --golden evaluation/golden_set_agent.yaml --method M --set S [--cache-only]
+# Commit: d620884   Run: 2026-11-18T09:20Z   Database: dev branch
+# The first dense runs embed the 57 new questions (no --cache-only); every later run is --cache-only.
+database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+
+method=dense  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set_agent.yaml
+
+  i3AkTO9HLXo  rank 1   offset -51s                  What is the stationary distribution, or equi
+  i3AkTO9HLXo  rank 1   offset -18s                  In the picture, what does each directed link
+  i3AkTO9HLXo  refuse   returned 5                   What is a hidden Markov model and how does i
+  o-jdJxXL_W4  rank 1   offset +14s                  What did Pavel Nekrasov claim about independ
+  o-jdJxXL_W4  rank 1   offset +32s                  When someone repeatedly pulls coloured stone
+  o-jdJxXL_W4  refuse   returned 5                   Which literary work did Markov analyse, coun
+  KZeIEiBrT_w  rank 1   offset -38s                  What is the damping factor in PageRank, and 
+  KZeIEiBrT_w  rank 1   offset +13s                  What ratio of offspring particles per partic
+  KZeIEiBrT_w  refuse   returned 5                   How does a hidden Markov model work, where t
+  fNk_zzaMoSs  rank 1   offset -3s                   How does the tip-to-tail method define the s
+  fNk_zzaMoSs  rank 1   offset -5s                   If you describe each home on the market by i
+  fNk_zzaMoSs  refuse   returned 5                   How is the dot product of two vectors calcul
+  cmNIMjPYdgM  rank 1   offset -7s                   According to the lecturer, why does random r
+  cmNIMjPYdgM  rank 1   offset -13s                  Why does the instructor multiply the squared
+  cmNIMjPYdgM  refuse   returned 5                   How does adding a ridge (L2 regularization) 
+  JuoVZkPBiKk  rank 1   offset +28s                  Under the Chinchilla compute-optimal scaling
+  JuoVZkPBiKk  rank 1   offset +37s                  Why could experiments run on tiny networks g
+  JuoVZkPBiKk  refuse   returned 5                   How do WordPiece or SentencePiece unigram to
+  lVynu4bo1rY  rank 1   offset +23s                  What does the Z loss trick penalise, and why
+  lVynu4bo1rY  rank 2   offset -54s                  When a language model reads its training tex
+  lVynu4bo1rY  refuse   returned 5                   How does a mixture-of-experts model decide w
+  DzpHeXVSC5I  rank 1   offset +72s                  Why are one hot vectors a poor way to repres
+  DzpHeXVSC5I  rank 1   offset -3s                   According to the lecturer, what single trait
+  DzpHeXVSC5I  refuse   returned 5                   How does negative sampling in word2vec avoid
+  Ba6Fn1-Jsfw  rank 1   offset +22s                  What does gradient clipping do when the norm
+  Ba6Fn1-Jsfw  rank 1   offset +15s                  Which wartime task done by the earliest elec
+  Ba6Fn1-Jsfw  refuse   returned 5                   How does beam search pick the final translat
+  Ub3GoFaUcds  rank 1   offset -29s                  What is label smoothing, and how does it cha
+  Ub3GoFaUcds  rank 1   offset -39s                  Why can simply counting the fraction of righ
+  Ub3GoFaUcds  refuse   returned 5                   How does byte pair encoding decide which cha
+  PbXjK-F-5so  rank 1   offset +13s                  Which zeitgebers does Huberman say you shoul
+  PbXjK-F-5so  rank 1   offset -23s                  What tip from a well-known record producer h
+  PbXjK-F-5so  refuse   returned 5                   How many days does Huberman say the body clo
+  ukzFI9rgwfU  rank 1   offset +16s                  In the cricket data set example, how does un
+  ukzFI9rgwfU  rank 1   offset +11s                  Why can a ride-hailing app charge more for t
+  ukzFI9rgwfU  refuse   returned 5                   How should the value of k be chosen in k-nea
+  E0Hmnixke2g  rank 1   offset +2s                   In a support vector machine, what are the su
+  E0Hmnixke2g  rank 1   offset -11s                  If two body measurements of an animal tend t
+  E0Hmnixke2g  refuse   returned 5                   What is reinforcement learning, and how does
+  9dFhZFUkzuQ  rank 1   offset -18s                  What household example does the speaker give
+  9dFhZFUkzuQ  rank 1   offset +33s                  How did the opening demo add hues to a greys
+  9dFhZFUkzuQ  refuse   returned 5                   What is the difference between convolutional
+  NUXdtN1W1FE  rank 1   offset -20s                  How does the speaker avoid the dummy variabl
+  NUXdtN1W1FE  rank 1   offset +12s                  In the shaded grid that compares each pair o
+  NUXdtN1W1FE  refuse   returned 5                   How does gradient descent update the slope a
+  prWyZhcktn4  rank 1   offset +17s                  How does the video define precision and reca
+  prWyZhcktn4  rank 1   offset -1s                   Why does the presenter insist on partitionin
+  prWyZhcktn4  refuse   returned 5                   How does the video use an ROC curve or the A
+  RmajweUFKvM  rank 1   offset +15s                  What max depth and minimum samples per leaf 
+  RmajweUFKvM  rank 1   offset -21s                  What are the downsides of the flowchart-styl
+  RmajweUFKvM  refuse   returned 5                   How does pruning a decision tree work, and h
+  4HKqjENq9OU  rank 1   offset -32s                  What square-root-of-n rule does the video gi
+  4HKqjENq9OU  rank 1   offset +125s                 What does the presenter substitute for patie
+  4HKqjENq9OU  refuse   returned 5                   How does the video plot the error rate again
+
+  Recall@5  1.000 (36/36)   MRR 0.986   Recall@1 35/36
+  offset median +1s   |offset| median 18s   late: 18/36   worst late +125s
+  negative questions: 18, retrieval returned nothing for 0
+  [negative] no questions with gold spans
+  [negative] negative questions: 18, retrieval returned nothing for 0
+  [paraphrase] Recall@5  1.000 (18/18)   MRR 0.972   Recall@1 17/18
+  [paraphrase] offset median -2s   |offset| median 16s   late: 8/18   worst late +125s
+  [speaker_words] Recall@5  1.000 (18/18)   MRR 1.000   Recall@1 18/18
+  [speaker_words] offset median +8s   |offset| median 19s   late: 10/18   worst late +72s
+
+  query embeddings: 0 cached, 54 API requests
+database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+
+method=lexical  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set_agent.yaml
+
+  i3AkTO9HLXo  rank 1   offset -51s                  What is the stationary distribution, or equi
+  i3AkTO9HLXo  rank 1   offset -18s                  In the picture, what does each directed link
+  i3AkTO9HLXo  refuse   returned 5                   What is a hidden Markov model and how does i
+  o-jdJxXL_W4  rank 1   offset -38s                  What did Pavel Nekrasov claim about independ
+  o-jdJxXL_W4  rank 1   offset -29s                  When someone repeatedly pulls coloured stone
+  o-jdJxXL_W4  refuse   returned 4                   Which literary work did Markov analyse, coun
+  KZeIEiBrT_w  rank 1   offset +11s                  What is the damping factor in PageRank, and 
+  KZeIEiBrT_w  rank 4   offset -33s                  What ratio of offspring particles per partic
+  KZeIEiBrT_w  refuse   returned 5                   How does a hidden Markov model work, where t
+  fNk_zzaMoSs  rank 3   offset -3s                   How does the tip-to-tail method define the s
+  fNk_zzaMoSs  MISS     5 chunks, none relevant      If you describe each home on the market by i
+  fNk_zzaMoSs  refuse   returned 5                   How is the dot product of two vectors calcul
+  cmNIMjPYdgM  rank 1   offset -7s                   According to the lecturer, why does random r
+  cmNIMjPYdgM  MISS     5 chunks, none relevant      Why does the instructor multiply the squared
+  cmNIMjPYdgM  refuse   returned 5                   How does adding a ridge (L2 regularization) 
+  JuoVZkPBiKk  rank 1   offset -31s                  Under the Chinchilla compute-optimal scaling
+  JuoVZkPBiKk  MISS     5 chunks, none relevant      Why could experiments run on tiny networks g
+  JuoVZkPBiKk  refuse   returned 5                   How do WordPiece or SentencePiece unigram to
+  lVynu4bo1rY  rank 1   offset +23s                  What does the Z loss trick penalise, and why
+  lVynu4bo1rY  MISS     5 chunks, none relevant      When a language model reads its training tex
+  lVynu4bo1rY  refuse   returned 5                   How does a mixture-of-experts model decide w
+  DzpHeXVSC5I  rank 1   offset +15s                  Why are one hot vectors a poor way to repres
+  DzpHeXVSC5I  rank 2   offset -3s                   According to the lecturer, what single trait
+  DzpHeXVSC5I  refuse   returned 5                   How does negative sampling in word2vec avoid
+  Ba6Fn1-Jsfw  rank 1   offset +22s                  What does gradient clipping do when the norm
+  Ba6Fn1-Jsfw  rank 2   offset -46s                  Which wartime task done by the earliest elec
+  Ba6Fn1-Jsfw  refuse   returned 5                   How does beam search pick the final translat
+  Ub3GoFaUcds  rank 1   offset -29s                  What is label smoothing, and how does it cha
+  Ub3GoFaUcds  MISS     5 chunks, none relevant      Why can simply counting the fraction of righ
+  Ub3GoFaUcds  refuse   returned 5                   How does byte pair encoding decide which cha
+  PbXjK-F-5so  rank 1   offset +13s                  Which zeitgebers does Huberman say you shoul
+  PbXjK-F-5so  MISS     5 chunks, none relevant      What tip from a well-known record producer h
+  PbXjK-F-5so  refuse   returned 5                   How many days does Huberman say the body clo
+  ukzFI9rgwfU  rank 1   offset -29s                  In the cricket data set example, how does un
+  ukzFI9rgwfU  MISS     0 chunks, none relevant      Why can a ride-hailing app charge more for t
+  ukzFI9rgwfU  refuse   returned 5                   How should the value of k be chosen in k-nea
+  E0Hmnixke2g  rank 1   offset +2s                   In a support vector machine, what are the su
+  E0Hmnixke2g  MISS     5 chunks, none relevant      If two body measurements of an animal tend t
+  E0Hmnixke2g  refuse   returned 5                   What is reinforcement learning, and how does
+  9dFhZFUkzuQ  rank 1   offset -18s                  What household example does the speaker give
+  9dFhZFUkzuQ  rank 1   offset -12s                  How did the opening demo add hues to a greys
+  9dFhZFUkzuQ  refuse   returned 5                   What is the difference between convolutional
+  NUXdtN1W1FE  rank 1   offset -20s                  How does the speaker avoid the dummy variabl
+  NUXdtN1W1FE  rank 1   offset +55s                  In the shaded grid that compares each pair o
+  NUXdtN1W1FE  refuse   returned 5                   How does gradient descent update the slope a
+  prWyZhcktn4  rank 1   offset +17s                  How does the video define precision and reca
+  prWyZhcktn4  MISS     0 chunks, none relevant      Why does the presenter insist on partitionin
+  prWyZhcktn4  refuse   returned 5                   How does the video use an ROC curve or the A
+  RmajweUFKvM  rank 1   offset +15s                  What max depth and minimum samples per leaf 
+  RmajweUFKvM  MISS     5 chunks, none relevant      What are the downsides of the flowchart-styl
+  RmajweUFKvM  refuse   returned 5                   How does pruning a decision tree work, and h
+  4HKqjENq9OU  rank 1   offset -32s                  What square-root-of-n rule does the video gi
+  4HKqjENq9OU  MISS     3 chunks, none relevant      What does the presenter substitute for patie
+  4HKqjENq9OU  refuse   returned 5                   How does the video plot the error rate again
+
+  Recall@5  0.694 (25/36)   MRR 0.627   Recall@1 21/36
+  offset median -12s   |offset| median 20s   late: 9/25   worst late +55s
+  negative questions: 18, retrieval returned nothing for 0
+  [negative] no questions with gold spans
+  [negative] negative questions: 18, retrieval returned nothing for 0
+  [paraphrase] Recall@5  0.389 (7/18)   MRR 0.292   Recall@1 4/18
+  [paraphrase] offset median -18s   |offset| median 29s   late: 1/7   worst late +55s
+  [speaker_words] Recall@5  1.000 (18/18)   MRR 0.963   Recall@1 17/18
+  [speaker_words] offset median -5s   |offset| median 19s   late: 8/18   worst late +23s
+
+  query embeddings: 0 cached, 0 API requests
+database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+
+method=hybrid  chunking_run=fixed_1000_200  k=5  set=reported  golden=golden_set_agent.yaml
+
+  i3AkTO9HLXo  rank 1   offset -51s                  What is the stationary distribution, or equi
+  i3AkTO9HLXo  rank 1   offset -18s                  In the picture, what does each directed link
+  i3AkTO9HLXo  refuse   returned 5                   What is a hidden Markov model and how does i
+  o-jdJxXL_W4  rank 1   offset -38s                  What did Pavel Nekrasov claim about independ
+  o-jdJxXL_W4  rank 1   offset -29s                  When someone repeatedly pulls coloured stone
+  o-jdJxXL_W4  refuse   returned 5                   Which literary work did Markov analyse, coun
+  KZeIEiBrT_w  rank 1   offset -38s                  What is the damping factor in PageRank, and 
+  KZeIEiBrT_w  rank 1   offset -33s                  What ratio of offspring particles per partic
+  KZeIEiBrT_w  refuse   returned 5                   How does a hidden Markov model work, where t
+  fNk_zzaMoSs  rank 2   offset -3s                   How does the tip-to-tail method define the s
+  fNk_zzaMoSs  rank 2   offset -5s                   If you describe each home on the market by i
+  fNk_zzaMoSs  refuse   returned 5                   How is the dot product of two vectors calcul
+  cmNIMjPYdgM  rank 1   offset -7s                   According to the lecturer, why does random r
+  cmNIMjPYdgM  MISS     5 chunks, none relevant      Why does the instructor multiply the squared
+  cmNIMjPYdgM  refuse   returned 5                   How does adding a ridge (L2 regularization) 
+  JuoVZkPBiKk  rank 1   offset -31s                  Under the Chinchilla compute-optimal scaling
+  JuoVZkPBiKk  MISS     5 chunks, none relevant      Why could experiments run on tiny networks g
+  JuoVZkPBiKk  refuse   returned 5                   How do WordPiece or SentencePiece unigram to
+  lVynu4bo1rY  rank 1   offset +23s                  What does the Z loss trick penalise, and why
+  lVynu4bo1rY  rank 4   offset -54s                  When a language model reads its training tex
+  lVynu4bo1rY  refuse   returned 5                   How does a mixture-of-experts model decide w
+  DzpHeXVSC5I  rank 1   offset +15s                  Why are one hot vectors a poor way to repres
+  DzpHeXVSC5I  rank 1   offset -3s                   According to the lecturer, what single trait
+  DzpHeXVSC5I  refuse   returned 5                   How does negative sampling in word2vec avoid
+  Ba6Fn1-Jsfw  rank 1   offset +22s                  What does gradient clipping do when the norm
+  Ba6Fn1-Jsfw  rank 1   offset -46s                  Which wartime task done by the earliest elec
+  Ba6Fn1-Jsfw  refuse   returned 5                   How does beam search pick the final translat
+  Ub3GoFaUcds  rank 1   offset -29s                  What is label smoothing, and how does it cha
+  Ub3GoFaUcds  rank 5   offset -39s                  Why can simply counting the fraction of righ
+  Ub3GoFaUcds  refuse   returned 5                   How does byte pair encoding decide which cha
+  PbXjK-F-5so  rank 1   offset +13s                  Which zeitgebers does Huberman say you shoul
+  PbXjK-F-5so  rank 4   offset -23s                  What tip from a well-known record producer h
+  PbXjK-F-5so  refuse   returned 5                   How many days does Huberman say the body clo
+  ukzFI9rgwfU  rank 1   offset -29s                  In the cricket data set example, how does un
+  ukzFI9rgwfU  rank 1   offset +11s                  Why can a ride-hailing app charge more for t
+  ukzFI9rgwfU  refuse   returned 5                   How should the value of k be chosen in k-nea
+  E0Hmnixke2g  rank 1   offset +2s                   In a support vector machine, what are the su
+  E0Hmnixke2g  MISS     5 chunks, none relevant      If two body measurements of an animal tend t
+  E0Hmnixke2g  refuse   returned 5                   What is reinforcement learning, and how does
+  9dFhZFUkzuQ  rank 1   offset -18s                  What household example does the speaker give
+  9dFhZFUkzuQ  rank 1   offset -12s                  How did the opening demo add hues to a greys
+  9dFhZFUkzuQ  refuse   returned 5                   What is the difference between convolutional
+  NUXdtN1W1FE  rank 1   offset -20s                  How does the speaker avoid the dummy variabl
+  NUXdtN1W1FE  rank 1   offset +55s                  In the shaded grid that compares each pair o
+  NUXdtN1W1FE  refuse   returned 5                   How does gradient descent update the slope a
+  prWyZhcktn4  rank 1   offset +17s                  How does the video define precision and reca
+  prWyZhcktn4  rank 1   offset -1s                   Why does the presenter insist on partitionin
+  prWyZhcktn4  refuse   returned 5                   How does the video use an ROC curve or the A
+  RmajweUFKvM  rank 1   offset +15s                  What max depth and minimum samples per leaf 
+  RmajweUFKvM  rank 3   offset +24s                  What are the downsides of the flowchart-styl
+  RmajweUFKvM  refuse   returned 5                   How does pruning a decision tree work, and h
+  4HKqjENq9OU  rank 1   offset -32s                  What square-root-of-n rule does the video gi
+  4HKqjENq9OU  rank 3   offset +125s                 What does the presenter substitute for patie
+  4HKqjENq9OU  refuse   returned 5                   How does the video plot the error rate again
+
+  Recall@5  0.917 (33/36)   MRR 0.788   Recall@1 26/36
+  offset median -12s   |offset| median 23s   late: 11/33   worst late +125s
+  negative questions: 18, retrieval returned nothing for 0
+  [negative] no questions with gold spans
+  [negative] negative questions: 18, retrieval returned nothing for 0
+  [paraphrase] Recall@5  0.833 (15/18)   MRR 0.604   Recall@1 9/18
+  [paraphrase] offset median -12s   |offset| median 24s   late: 4/15   worst late +125s
+  [speaker_words] Recall@5  1.000 (18/18)   MRR 0.972   Recall@1 17/18
+  [speaker_words] offset median -12s   |offset| median 21s   late: 7/18   worst late +23s
+
+  query embeddings: 54 cached, 0 API requests
+database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+
+method=dense  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set_agent.yaml
+
+  LXaFHI_2Hus  rank 1   offset -23s                  What are the ultradian cycles that Nathaniel
+  LXaFHI_2Hus  rank 1   offset +15s                  Why did the online retailer's founder have t
+  LXaFHI_2Hus  refuse   returned 5                   How many days does it take for a new habit t
+
+  Recall@5  1.000 (2/2)   MRR 1.000   Recall@1 2/2
+  offset median -4s   |offset| median 19s   late: 1/2   worst late +15s
+  negative questions: 1, retrieval returned nothing for 0
+  [negative] no questions with gold spans
+  [negative] negative questions: 1, retrieval returned nothing for 0
+  [paraphrase] Recall@5  1.000 (1/1)   MRR 1.000   Recall@1 1/1
+  [paraphrase] offset median +15s   |offset| median 15s   late: 1/1   worst late +15s
+  [speaker_words] Recall@5  1.000 (1/1)   MRR 1.000   Recall@1 1/1
+  [speaker_words] offset median -23s   |offset| median 23s   late: 0/1   worst late +0s
+
+  query embeddings: 0 cached, 3 API requests
+database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+
+method=lexical  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set_agent.yaml
+
+  LXaFHI_2Hus  rank 1   offset -23s                  What are the ultradian cycles that Nathaniel
+  LXaFHI_2Hus  MISS     5 chunks, none relevant      Why did the online retailer's founder have t
+  LXaFHI_2Hus  refuse   returned 5                   How many days does it take for a new habit t
+
+  Recall@5  0.500 (1/2)   MRR 0.500   Recall@1 1/2
+  offset median -23s   |offset| median 23s   late: 0/1   worst late +0s
+  negative questions: 1, retrieval returned nothing for 0
+  [negative] no questions with gold spans
+  [negative] negative questions: 1, retrieval returned nothing for 0
+  [paraphrase] Recall@5  0.000 (0/1)   MRR 0.000   Recall@1 0/1
+  [speaker_words] Recall@5  1.000 (1/1)   MRR 1.000   Recall@1 1/1
+  [speaker_words] offset median -23s   |offset| median 23s   late: 0/1   worst late +0s
+
+  query embeddings: 0 cached, 0 API requests
+database host: ep-jolly-credit-ax9zu766-pooler.c-4.us-east-2.aws.neon.tech
+
+method=hybrid  chunking_run=fixed_1000_200  k=5  set=dev  golden=golden_set_agent.yaml
+
+  LXaFHI_2Hus  rank 1   offset -23s                  What are the ultradian cycles that Nathaniel
+  LXaFHI_2Hus  rank 5   offset -39s                  Why did the online retailer's founder have t
+  LXaFHI_2Hus  refuse   returned 5                   How many days does it take for a new habit t
+
+  Recall@5  1.000 (2/2)   MRR 0.600   Recall@1 1/2
+  offset median -31s   |offset| median 31s   late: 0/2   worst late +0s
+  negative questions: 1, retrieval returned nothing for 0
+  [negative] no questions with gold spans
+  [negative] negative questions: 1, retrieval returned nothing for 0
+  [paraphrase] Recall@5  1.000 (1/1)   MRR 0.200   Recall@1 0/1
+  [paraphrase] offset median -39s   |offset| median 39s   late: 0/1   worst late +0s
+  [speaker_words] Recall@5  1.000 (1/1)   MRR 1.000   Recall@1 1/1
+  [speaker_words] offset median -23s   |offset| median 23s   late: 0/1   worst late +0s
+
+  query embeddings: 3 cached, 0 API requests
