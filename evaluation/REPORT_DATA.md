@@ -127,7 +127,7 @@ Source: `evaluation/results/logstats_prod_in_dev_copy.json` and `.txt`. Command:
 
 ## 6. Tests
 
-- 18 Nov 2026: 478 collected, 474 passed, 3 skipped, 1 xfailed. Source: `evaluation/results/test_count.json`, command `pytest -q`.
+- 18 Nov 2026: 480 collected, 476 passed, 3 skipped, 1 xfailed. Source: `evaluation/results/test_count.json`, command `pytest -q`.
 - Baseline before the finish run (5cad71f): 401 collected, 398 passed, 3 skipped (docs/finish_log.md).
 
 ## 7. Facts used in the report that are not computed by a script
