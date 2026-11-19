@@ -157,7 +157,7 @@ Source: `evaluation/results/citation_rate_prod_in_dev_copy.json`. Command: `pyth
 
 ## 6. Tests
 
-- 18 Nov 2026: 497 collected, 494 passed, 3 skipped, 0 xfailed, 0 failed. Source: `evaluation/results/test_count.json`, command `pytest -q`.
+- 19 Nov 2026: 512 collected, 509 passed, 3 skipped, 0 xfailed, 0 failed. Source: `evaluation/results/test_count.json`, command `pytest -q`.
 - Baseline before the finish run (5cad71f): 401 collected, 398 passed, 3 skipped (docs/finish_log.md).
 
 ## 7. Facts used in the report that are not computed by a script
